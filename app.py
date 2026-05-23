@@ -27,6 +27,10 @@ def get_bot_status():
 def get_guilds():
     return _read_json(GUILDS_FILE, [])
 
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
