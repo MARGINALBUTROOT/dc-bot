@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+*.json.tmp
+facebook_cookies.json
+twitter_cookies.json
+*.db

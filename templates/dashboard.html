@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROOTx Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e6;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: #0e0e16;
+            border-right: 1px solid #1a1a28;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .sidebar h1 {
+            font-size: 22px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #5865F2, #ED4245);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .sidebar .sub { color: #80808a; font-size: 13px; margin-bottom: 32px; }
+        .nav { display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; border-radius: 12px;
+            color: #80808a; text-decoration: none; font-size: 14px; font-weight: 500;
+            transition: all 0.2s; cursor: pointer; border: none; background: none;
+            width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: #1a1a28; color: #e0e0e6; }
+        .nav-item.active { background: #1a1a28; color: #5865F2; }
+        .nav-item i { width: 20px; text-align: center; }
+        .sidebar-footer { margin-top: auto; padding-top: 24px; }
+        .logout-btn {
+            display: flex; align-items: center; gap: 8px;
+            color: #80808a; text-decoration: none; font-size: 13px;
+            padding: 10px 16px; border-radius: 10px; transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(237,66,69,0.1); color: #ED4245; }
+
+        .main {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+        }
+        .header h2 { font-size: 24px; font-weight: 700; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .status-badge {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: 100px; font-size: 13px; font-weight: 600;
+        }
+        .status-badge.online { background: rgba(87,242,135,0.1); color: #57F287; }
+        .status-badge.offline { background: rgba(237,66,69,0.1); color: #ED4245; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .online .status-dot { background: #57F287; box-shadow: 0 0 12px rgba(87,242,135,0.4); }
+        .offline .status-dot { background: #ED4245; }
+
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 32px;
+        }
+        .stat-card {
+            background: #13131a; border: 1px solid #1f1f2a;
+            border-radius: 16px; padding: 20px 24px;
+        }
+        .stat-card h4 { color: #80808a; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .stat-card .num { font-size: 28px; font-weight: 700; }
+        .stat-card .num.green { color: #57F287; }
+        .stat-card .num.red { color: #ED4245; }
+        .stat-card .num.blue { color: #5865F2; }
+        .stat-card .num.yellow { color: #FEE75C; }
+
+        .section-title {
+            font-size: 18px; font-weight: 700; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .server-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .server-card {
+            background: #13131a; border: 1px solid #1f1f2a;
+            border-radius: 16px; padding: 20px;
+            display: flex; align-items: center; gap: 16px;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .server-card:hover { border-color: #2a2a3a; transform: translateY(-2px); }
+        .server-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: #1a1a24; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; overflow: hidden;
+        }
+        .server-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .server-info { flex: 1; min-width: 0; }
+        .server-info h4 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .server-info p { color: #80808a; font-size: 12px; margin-top: 2px; }
+        .server-actions { display: flex; gap: 8px; }
+        .btn-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            border: none; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-icon.danger { background: rgba(237,66,69,0.1); color: #ED4245; }
+        .btn-icon.danger:hover { background: rgba(237,66,69,0.2); }
+        .btn-icon.info { background: rgba(88,101,242,0.1); color: #5865F2; }
+        .btn-icon.info:hover { background: rgba(88,101,242,0.2); }
+
+        .detail-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        .detail-modal.active { display: flex; }
+        .detail-content {
+            background: #13131a; border: 1px solid #1f1f2a;
+            border-radius: 24px; padding: 32px;
+            width: 600px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+        }
+        .detail-content h3 { font-size: 20px; margin-bottom: 20px; }
+        .detail-content .close {
+            float: right; background: none; border: none;
+            color: #80808a; font-size: 20px; cursor: pointer;
+        }
+        .detail-content .info-row {
+            display: flex; justify-content: space-between; padding: 10px 0;
+            border-bottom: 1px solid #1f1f2a; font-size: 14px;
+        }
+        .detail-content .info-row .label { color: #80808a; }
+        .logs-table {
+            width: 100%; border-collapse: collapse; margin-top: 16px;
+        }
+        .logs-table th {
+            text-align: left; padding: 10px 12px;
+            font-size: 12px; color: #80808a; text-transform: uppercase;
+            border-bottom: 1px solid #1f1f2a;
+        }
+        .logs-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #1a1a24; }
+        .badge {
+            display: inline-block; padding: 3px 8px; border-radius: 6px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge.red { background: rgba(237,66,69,0.15); color: #ED4245; }
+        .badge.green { background: rgba(87,242,135,0.15); color: #57F287; }
+        .badge.yellow { background: rgba(254,231,92,0.15); color: #FEE75C; }
+        .badge.blue { background: rgba(88,101,242,0.15); color: #5865F2; }
+
+        .empty {
+            text-align: center; padding: 48px; color: #80808a;
+        }
+        .empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+
+        .toast {
+            position: fixed; bottom: 32px; right: 32px;
+            padding: 16px 24px; border-radius: 12px;
+            font-size: 14px; font-weight: 500;
+            display: none; z-index: 200;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast.success { background: rgba(87,242,135,0.15); border: 1px solid rgba(87,242,135,0.3); color: #57F287; }
+        .toast.error { background: rgba(237,66,69,0.15); border: 1px solid rgba(237,66,69,0.3); color: #ED4245; }
+
+        .btn-primary {
+            background: #5865F2; color: white; border: none;
+            padding: 10px 20px; border-radius: 10px; font-weight: 600;
+            cursor: pointer; font-size: 14px; transition: all 0.2s;
+        }
+        .btn-primary:hover { background: #4752c4; }
+
+        .log-card {
+            background: #13131a; border: 1px solid #1f1f2a;
+            border-radius: 12px; padding: 14px 18px;
+            display: flex; align-items: center; gap: 14px;
+            transition: all 0.3s; animation: feedIn 0.4s ease;
+        }
+        .log-card:hover { border-color: #2a2a3a; }
+        .log-card.new { border-color: #5865F2; box-shadow: 0 0 0 1px rgba(88,101,242,0.2); }
+        @keyframes feedIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .log-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .log-icon.ban { background: rgba(237,66,69,0.15); color: #ED4245; }
+        .log-icon.kick { background: rgba(254,231,92,0.15); color: #FEE75C; }
+        .log-icon.warn { background: rgba(254,231,92,0.15); color: #FEE75C; }
+        .log-icon.unwarn { background: rgba(87,242,135,0.15); color: #57F287; }
+        .log-icon.purge { background: rgba(88,101,242,0.15); color: #5865F2; }
+        .log-icon.lock { background: rgba(237,66,69,0.15); color: #ED4245; }
+        .log-icon.unlock { background: rgba(87,242,135,0.15); color: #57F287; }
+        .log-icon.default { background: rgba(128,128,138,0.15); color: #80808a; }
+        .log-info { flex: 1; min-width: 0; }
+        .log-info .log-title { font-size: 14px; font-weight: 600; }
+        .log-info .log-meta { font-size: 12px; color: #80808a; margin-top: 2px; }
+        .log-time { font-size: 11px; color: #585860; white-space: nowrap; }
+
+        .searchable-select-wrap { position: relative; }
+        .searchable-select-wrap input {
+            width: 100%; background: #0a0a0f; border: 1px solid #1f1f2a;
+            border-radius: 10px; padding: 10px 14px; color: white; font-size: 14px; outline: none;
+        }
+        .searchable-select-wrap select {
+            width: 100%; background: #0a0a0f; border: 1px solid #1f1f2a;
+            border-radius: 10px; padding: 10px 14px; color: white; font-size: 14px; outline: none;
+            margin-top: 4px;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; padding: 16px; }
+            .main { padding: 16px; }
+            .server-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>ROOTx</h1>
+        <p class="sub">Admin Paneli</p>
+        <div class="nav">
+            <button class="nav-item active" onclick="showPage('dashboard')">
+                <i class="fas fa-chart-simple"></i> Genel Bakis
+            </button>
+            <button class="nav-item" onclick="showPage('servers')">
+                <i class="fas fa-server"></i> Sunucular
+            </button>
+            <button class="nav-item" onclick="showPage('logs')">
+                <i class="fas fa-list"></i> Loglar
+            </button>
+            <button class="nav-item" onclick="showPage('stats')">
+                <i class="fas fa-chart-bar"></i> Istatistikler
+            </button>
+            <button class="nav-item" onclick="showPage('bot-kontrol')">
+                <i class="fas fa-sliders"></i> Bot Kontrol
+            </button>
+            <button class="nav-item" onclick="showPage('moderasyon')">
+                <i class="fas fa-gavel"></i> Moderasyon
+            </button>
+            <button class="nav-item" onclick="showPage('dogrulama')">
+                <i class="fas fa-shield"></i> Dogrulama
+            </button>
+            <button class="nav-item" onclick="showPage('ayarlar')">
+                <i class="fas fa-cog"></i> Ayarlar
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-right-from-bracket"></i> Cikis Yap</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <h2 id="page-title">Genel Bakis</h2>
+            <div class="header-right">
+                <button class="btn-primary" onclick="loadAll()"><i class="fas fa-rotate"></i> Yenile</button>
+                <button class="btn-primary" style="background:#57F287;color:#0a0a0f" onclick="inviteBot()" title="Sunucuya Ekle"><i class="fas fa-plus"></i> Davet Et</button>
+                <div class="status-badge" id="status-badge" onclick="inviteBot()" style="cursor:pointer" title="Sunucuya eklemek icin tikla">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Yukleniyor...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-dashboard" class="page active">
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card"><h4>Sunucu Sayisi</h4><div class="num blue" id="stat-guilds">0</div></div>
+                <div class="stat-card"><h4>Yasaklamalar</h4><div class="num red" id="stat-bans">0</div></div>
+                <div class="stat-card"><h4>Atilanlar</h4><div class="num yellow" id="stat-kicks">0</div></div>
+                <div class="stat-card"><h4>Uyarilar</h4><div class="num green" id="stat-warns">0</div></div>
+            </div>
+            <div class="section-title"><i class="fas fa-server"></i> Son Eklenen Sunucular</div>
+            <div class="server-grid" id="recent-servers"></div>
+        </div>
+
+        <div id="page-servers" class="page">
+            <div class="section-title"><i class="fas fa-server"></i> Tum Sunucular</div>
+            <div class="server-grid" id="all-servers"></div>
+        </div>
+
+        <div id="page-logs" class="page">
+            <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+                <input type="text" id="log-search" placeholder="Kullanici ara..." style="flex:1;min-width:200px;background:#13131a;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none">
+                <select id="log-filter" style="background:#13131a;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none">
+                    <option value="">Tum Islemler</option>
+                    <option value="BAN">Yasaklama</option>
+                    <option value="KICK">Atma</option>
+                    <option value="WARN">Uyari</option>
+                    <option value="UNWARN">Uyari Kaldirma</option>
+                    <option value="PURGE">Mesaj Silme</option>
+                    <option value="LOCK">Kanal Kilitleme</option>
+                    <option value="UNLOCK">Kanal Acma</option>
+                </select>
+                <span style="font-size:12px;color:#80808a;display:flex;align-items:center;gap:6px">
+                    <span class="status-dot" style="background:#57F287;width:6px;height:6px;display:inline-block;border-radius:50%;animation:pulse 1.5s infinite"></span>
+                    <span id="log-count">Canli</span>
+                </span>
+            </div>
+            <div id="log-feed" style="display:flex;flex-direction:column;gap:8px;max-height:600px;overflow-y:auto"></div>
+        </div>
+
+        <div id="page-stats" class="page">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                    <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Genel Istatistikler</h4>
+                    <div id="genel-stats"></div>
+                </div>
+                <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                    <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Islem Turlerine Gore</h4>
+                    <div id="action-stats"></div>
+                </div>
+            </div>
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Sunucu Bazinda Istatistikler</h4>
+                <div id="guild-stats"></div>
+            </div>
+            <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                    <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Moderatorlere Gore</h4>
+                    <div id="mod-stats"></div>
+                </div>
+                <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                    <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">En Cok Islem Yapilan Sunucular</h4>
+                    <div id="top-guilds"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-bot-kontrol" class="page">
+        <div class="section-title"><i class="fas fa-sliders"></i> Bot Kontrol</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Durum Degistir</h4>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+                        <input type="radio" name="bot-status" value="online" checked>
+                        <span class="status-dot" style="background:#57F287;width:10px;height:10px;border-radius:50%;display:inline-block"></span>
+                        Cevrimici
+                    </label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+                        <input type="radio" name="bot-status" value="idle">
+                        <span class="status-dot" style="background:#FEE75C;width:10px;height:10px;border-radius:50%;display:inline-block"></span>
+                        Bosta
+                    </label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+                        <input type="radio" name="bot-status" value="dnd">
+                        <span class="status-dot" style="background:#ED4245;width:10px;height:10px;border-radius:50%;display:inline-block"></span>
+                        Rahatsiz Etmeyin
+                    </label>
+                </div>
+                <button class="btn-primary" onclick="setBotStatus()"><i class="fas fa-check"></i> Uygula</button>
+            </div>
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Islemler</h4>
+                <p style="font-size:13px;color:#80808a;margin-bottom:20px">Botu yeniden baslatabilir, komutlari yeniden yukleyebilir veya kapatabilirsiniz.</p>
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <button class="btn-primary" style="background:#FEE75C;color:#0a0a0f" onclick="restartBot()"><i class="fas fa-rotate"></i> Yeniden Baslat</button>
+                    <button class="btn-primary" style="background:#5865F2" onclick="reloadBot()"><i class="fas fa-arrows-rotate"></i> Reload Komutlar</button>
+                    <button class="btn-primary" style="background:#ED4245" onclick="shutdownBot()"><i class="fas fa-power-off"></i> Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-moderasyon" class="page">
+        <div class="section-title"><i class="fas fa-gavel"></i> Moderasyon</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Islem Yap</h4>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <select id="mod-guild" style="background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none" onchange="loadMembers()">
+                        <option value="">Sunucu Secin</option>
+                    </select>
+                    <div class="searchable-select-wrap">
+                        <input type="text" id="mod-user-search" placeholder="Kullanici ara..." oninput="filterModUsers()">
+                        <select id="mod-user" size="5" style="width:100%;background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:8px 14px;color:white;font-size:14px;outline:none;margin-top:4px">
+                            <option value="">Kullanici Secin</option>
+                        </select>
+                    </div>
+                    <select id="mod-action" style="background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none">
+                        <option value="ban">Yasakla (Ban)</option>
+                        <option value="kick">At (Kick)</option>
+                        <option value="warn">Uyar (Warn)</option>
+                    </select>
+                    <input type="text" id="mod-reason" placeholder="Sebep..." style="background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none">
+                    <button class="btn-primary" onclick="executeModAction()"><i class="fas fa-play"></i> Uygula</button>
+                </div>
+            </div>
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Uyari Gecmisi</h4>
+                <div style="display:flex;gap:8px;margin-bottom:12px">
+                    <select id="warn-user-guild" style="flex:1;background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none" onchange="loadWarnUsers()">
+                        <option value="">Sunucu Secin</option>
+                    </select>
+                </div>
+                <div id="warn-user-select-wrap" style="display:none;margin-bottom:12px">
+                    <select id="warn-user-select" style="width:100%;background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none" onchange="loadWarnHistory()">
+                        <option value="">Kullanici Secin</option>
+                    </select>
+                </div>
+                <div id="warn-history" style="font-size:13px;color:#80808a">Kullanici secin</div>
+            </div>
+        </div>
+        <div style="margin-top:16px;background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+            <h4 style="margin-bottom:16px;font-size:14px;color:#80808a">Kullanici Ara</h4>
+            <div style="display:flex;gap:12px">
+                <input type="text" id="user-search-input" placeholder="Kullanici adi..." style="flex:1;background:#0a0a0f;border:1px solid #1f1f2a;border-radius:10px;padding:10px 14px;color:white;font-size:14px;outline:none">
+                <button class="btn-primary" onclick="searchUsers()"><i class="fas fa-search"></i> Ara</button>
+            </div>
+            <div id="user-search-results" style="margin-top:12px;font-size:13px;color:#80808a"></div>
+        </div>
+    </div>
+
+    <div id="page-dogrulama" class="page">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="section-title"><i class="fas fa-shield"></i> Dogrulama Sistemleri</div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:12px;color:#80808a" id="dogrulama-log-count"></span>
+                <button class="btn-primary" onclick="loadDogrulama();loadDogrulamaLogs()"><i class="fas fa-rotate"></i> Yenile</button>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px;overflow-x:auto">
+                <table class="logs-table" style="width:100%;min-width:600px">
+                    <thead><tr><th>Sunucu</th><th>Kayitsiz Rol</th><th>Uye Rol</th><th>Kayit Kanal</th><th>Dogrulama Kanal</th><th>Panel</th><th>Durum</th></tr></thead>
+                    <tbody id="dogrulama-body"></tbody>
+                </table>
+            </div>
+            <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:20px">
+                <h4 style="font-size:14px;color:#80808a;margin-bottom:12px"><i class="fas fa-clock"></i> Son Dogrulamalar</h4>
+                <div id="dogrulama-activity" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:13px">
+                    <div style="color:#80808a;text-align:center;padding:12px">Yukleniyor...</div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:12px;background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:20px">
+            <h4 style="font-size:14px;color:#80808a;margin-bottom:12px">Kurulum Talimati</h4>
+            <ol style="font-size:13px;color:#e0e0e6;line-height:1.8;padding-left:20px">
+                <li><code style="background:#0a0a0f;padding:2px 6px;border-radius:4px">/üyedoğrulama</code> komutunu kullan</li>
+                <li><strong>kayitsiz_rol</strong> = sunucuya yeni girenin alacagi rol</li>
+                <li><strong>uye_rol</strong> = dogrulama tamamlaninca verilecek rol</li>
+                <li><strong>kayit_kanal</strong> = dogrulanan üyelerin loglanacagi kanal</li>
+                <li><strong>dogrulama_kanal</strong> = buton mesajinin duracagi kanal</li>
+                <li><code>/üyedoğrulama panel:✓</code> ile butonu gonder (digerlerini bos birak)</li>
+            </ol>
+        </div>
+    </div>
+
+    <div id="page-ayarlar" class="page">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="section-title"><i class="fas fa-cog"></i> Sunucu Ayarlari</div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:12px;color:#80808a" id="ayarlar-sayac"></span>
+                <button class="btn-primary" onclick="loadAyarlar()"><i class="fas fa-rotate"></i> Yenile</button>
+            </div>
+        </div>
+        <div id="ayarlar-container" style="display:flex;flex-direction:column;gap:12px">
+            <div style="color:#80808a;text-align:center;padding:24px">Yukleniyor...</div>
+        </div>
+    </div>
+
+    <div class="detail-modal" id="server-modal">
+        <div class="detail-content">
+            <button class="close" onclick="closeModal()"><i class="fas fa-xmark"></i></button>
+            <h3 id="modal-title">Sunucu Detayi</h3>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let refreshTimer;
+
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = 'toast ' + type;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        function showPage(name) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + name).classList.add('active');
+            document.querySelector(`[onclick="showPage('${name}')"]`).classList.add('active');
+            const titles = { dashboard: 'Genel Bakis', servers: 'Sunucular', logs: 'Loglar', stats: 'Istatistikler', 'bot-kontrol': 'Bot Kontrol', moderasyon: 'Moderasyon', dogrulama: 'Dogrulama', ayarlar: 'Ayarlar' };
+            document.getElementById('page-title').textContent = titles[name];
+        }
+
+        function closeModal() { document.getElementById('server-modal').classList.remove('active'); }
+
+        function badge(action) {
+            const map = { BAN: ['Yasak', 'red'], KICK: ['Atildi', 'yellow'], WARN: ['Uyari', 'yellow'], PURGE: ['Silme', 'blue'], LOCK: ['Kilit', 'red'], UNLOCK: ['Acik', 'green'] };
+            const [text, cls] = map[action] || [action, 'blue'];
+            return `<span class="badge ${cls}">${text}</span>`;
+        }
+
+        async function loadAll() {
+            await Promise.all([loadStatus(), loadGuilds(), loadLogs(), loadStats()]);
+        }
+
+        async function loadStatus() {
+            try {
+                const r = await fetch('/api/status');
+                const d = await r.json();
+                const badge = document.getElementById('status-badge');
+                const text = document.getElementById('status-text');
+                if (d.status === 'online') {
+                    badge.className = 'status-badge online';
+                    text.textContent = 'Cevrimici - ' + (d.bot_name || '');
+                } else {
+                    badge.className = 'status-badge offline';
+                    text.textContent = 'Cevrimdisi';
+                }
+                document.getElementById('stat-guilds').textContent = d.guilds || '0';
+                document.getElementById('stat-bans').textContent = d.stats.total_bans;
+                document.getElementById('stat-kicks').textContent = d.stats.total_kicks;
+                document.getElementById('stat-warns').textContent = d.stats.total_warns;
+            } catch(e) {}
+        }
+
+        function serverCard(s, recent) {
+            return `
+                <div class="server-card" onclick="showDetail('${s.id}')">
+                    <div class="server-icon">
+                        ${s.icon_url ? `<img src="${s.icon_url}" alt="">` : '<i class="fas fa-server"></i>'}
+                    </div>
+                    <div class="server-info">
+                        <h4>${s.name}</h4>
+                        <p>${s.member_count} uye - ${s.created_at}</p>
+                    </div>
+                    <div class="server-actions">
+                        <button class="btn-icon info" onclick="event.stopPropagation();showDetail('${s.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon danger" onclick="event.stopPropagation();leaveGuild('${s.id}','${s.name.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadGuilds() {
+            try {
+                const r = await fetch('/api/guilds');
+                const guilds = await r.json();
+                const recent = guilds.slice(-6).reverse();
+                document.getElementById('recent-servers').innerHTML = recent.length
+                    ? recent.map(g => serverCard(g, true)).join('')
+                    : '<div class="empty"><i class="fas fa-server"></i><p>Henuz sunucu yok</p></div>';
+                document.getElementById('all-servers').innerHTML = guilds.length
+                    ? guilds.map(g => serverCard(g, false)).join('')
+                    : '<div class="empty"><i class="fas fa-server"></i><p>Henuz sunucu yok</p></div>';
+            } catch(e) {}
+        }
+
+        async function showDetail(guildId) {
+            try {
+                const r = await fetch(`/api/guilds/${guildId}`);
+                const d = await r.json();
+                if (d.error) return showToast(d.error, 'error');
+                const g = d.guild;
+                document.getElementById('modal-title').textContent = g.name;
+                let html = `
+                    <div class="info-row"><span class="label">Sunucu ID</span><span>${g.id}</span></div>
+                    <div class="info-row"><span class="label">Uye Sayisi</span><span>${g.member_count}</span></div>
+                    <div class="info-row"><span class="label">Sahip</span><span>${g.owner_name}</span></div>
+                    <div class="info-row"><span class="label">Olusturulma</span><span>${g.created_at}</span></div>
+                    <h4 style="margin:20px 0 12px;font-size:15px">Moderasyon Loglari</h4>
+                    <table class="logs-table">
+                        <thead><tr><th>Islem</th><th>Moderator</th><th>Hedef</th><th>Sebep</th></tr></thead>
+                        <tbody>
+                `;
+                if (d.logs && d.logs.length) {
+                    d.logs.slice(-20).reverse().forEach(log => {
+                        html += `<tr><td>${badge(log.action)}</td><td>${log.moderator}</td><td>${log.target}</td><td>${log.reason}</td></tr>`;
+                    });
+                } else {
+                    html += '<tr><td colspan="4" style="text-align:center;color:#80808a">Henuz log yok</td></tr>';
+                }
+                html += '</tbody></table></div>';
+                document.getElementById('modal-body').innerHTML = html;
+                document.getElementById('server-modal').classList.add('active');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function leaveGuild(guildId, name) {
+            if (!confirm('"' + name + '" sunucusundan ayrilmak istediginize emin misiniz?')) return;
+            try {
+                const r = await fetch('/api/guilds/leave', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({guild_id: guildId})
+                });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Sunucudan ayrilma komutu gonderildi.', 'success');
+                    setTimeout(loadGuilds, 3000);
+                } else showToast(d.error || 'Hata', 'error');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function loadLogs() {
+            try {
+                const r = await fetch('/api/logs');
+                const d = await r.json();
+                const feed = document.getElementById('log-feed');
+                if (!d.logs || !d.logs.length) {
+                    feed.innerHTML = '<div class="empty"><i class="fas fa-list"></i><p>Henuz log yok</p></div>';
+                    return;
+                }
+                const oldCount = feed.children.length;
+                feed.innerHTML = d.logs.map(l => {
+                    const a = (l.action || '').toLowerCase();
+                    const iconMap = {ban:'fa-gavel', kick:'fa-right-from-bracket', warn:'fa-triangle-exclamation', unwarn:'fa-check', purge:'fa-trash', lock:'fa-lock', unlock:'fa-lock-open'};
+                    const icon = iconMap[a] || 'fa-circle';
+                    const cls = ['ban','kick','warn','unwarn','purge','lock','unlock'].includes(a) ? a : 'default';
+                    const time = l.timestamp ? new Date(l.timestamp*1000).toLocaleString('tr-TR') : '';
+                    const guildName = l.guild_name || l.guild_id || '';
+                    return `
+                        <div class="log-card${d.logs.indexOf(l) < 3 ? ' new' : ''}">
+                            <div class="log-icon ${cls}"><i class="fas ${icon}"></i></div>
+                            <div class="log-info">
+                                <div class="log-title">${badge(l.action)} ${l.target} <span style="color:#80808a;font-weight:400">- ${l.reason}</span></div>
+                                <div class="log-meta"><i class="fas fa-user"></i> ${l.moderator} <i class="fas fa-server" style="margin-left:8px"></i> ${guildName}</div>
+                            </div>
+                            <div class="log-time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+                document.getElementById('log-count').textContent = d.logs.length + ' kayit';
+            } catch(e) {}
+        }
+
+        function inviteBot() {
+            fetch('/api/status').then(r=>r.json()).then(d => {
+                if (d.invite_url) window.open(d.invite_url, '_blank');
+                else showToast('Davet linki alinamadi', 'error');
+            }).catch(() => showToast('Bot kapaliyken davet linki calismaz', 'error'));
+        }
+
+        async function loadStats() {
+            try {
+                const r = await fetch('/api/stats');
+                const d = await r.json();
+
+                const genel = d.genel || {};
+                const uptime = genel.uptime ? Math.floor((Date.now()/1000 - genel.uptime)/60) + ' dk once basladi' : 'Bilinmiyor';
+                document.getElementById('genel-stats').innerHTML = `
+                    <div class="info-row"><span class="label">Bot Adi</span><span>${genel.bot_name || 'Bilinmiyor'}</span></div>
+                    <div class="info-row"><span class="label">Sunucu Sayisi</span><span>${genel.total_guilds || 0}</span></div>
+                    <div class="info-row"><span class="label">Toplam Islem</span><span>${genel.total_actions || 0}</span></div>
+                    <div class="info-row"><span class="label">Komut Kullanimi</span><span>${genel.commands_used || 0}</span></div>
+                    <div class="info-row"><span class="label">Calisma Suresi</span><span>${uptime}</span></div>
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #1f1f2a">
+                        <div class="info-row"><span class="label">Ban</span><span style="color:#ED4245">${genel.total_bans || 0}</span></div>
+                        <div class="info-row"><span class="label">Kick</span><span style="color:#FEE75C">${genel.total_kicks || 0}</span></div>
+                        <div class="info-row"><span class="label">Warn</span><span style="color:#57F287">${genel.total_warns || 0}</span></div>
+                    </div>
+                `;
+
+                document.getElementById('action-stats').innerHTML = Object.entries(d.by_action).length
+                    ? Object.entries(d.by_action).map(([k,v]) => `<div class="info-row"><span class="label">${k}</span><span>${v}</span></div>`).join('')
+                    : '<p style="color:#80808a;font-size:14px">Henuz veri yok</p>';
+
+                document.getElementById('mod-stats').innerHTML = Object.entries(d.by_moderator).length
+                    ? Object.entries(d.by_moderator).map(([k,v]) => `<div class="info-row"><span class="label">${k}</span><span>${v}</span></div>`).join('')
+                    : '<p style="color:#80808a;font-size:14px">Henuz veri yok</p>';
+
+                const bg = d.by_guild || {};
+                const guildEntries = Object.entries(bg);
+                document.getElementById('guild-stats').innerHTML = guildEntries.length
+                    ? `<table class="logs-table" style="width:100%">
+                        <thead><tr><th>Sunucu</th><th>Toplam</th><th>Ban</th><th>Kick</th><th>Warn</th><th>Diger</th></tr></thead>
+                        <tbody>${guildEntries.map(([id, g]) => `
+                            <tr>
+                                <td>${g.name || id}</td>
+                                <td>${g.total}</td>
+                                <td style="color:#ED4245">${g.actions?.BAN || 0}</td>
+                                <td style="color:#FEE75C">${g.actions?.KICK || 0}</td>
+                                <td style="color:#57F287">${g.actions?.WARN || 0}</td>
+                                <td>${g.total - (g.actions?.BAN||0) - (g.actions?.KICK||0) - (g.actions?.WARN||0)}</td>
+                            </tr>
+                        `).join('')}</tbody></table>`
+                    : '<p style="color:#80808a;font-size:14px">Henuz veri yok</p>';
+
+                const top = d.top_guilds || [];
+                document.getElementById('top-guilds').innerHTML = top.length
+                    ? top.map((g, i) => `
+                        <div style="display:flex;justify-content:space-between;padding:10px;background:#0a0a0f;border-radius:8px;margin-bottom:6px;font-size:13px">
+                            <span>${i+1}. <strong>${g.name}</strong></span>
+                            <span style="color:#80808a">${g.total} islem</span>
+                        </div>
+                    `).join('')
+                    : '<p style="color:#80808a;font-size:14px">Henuz veri yok</p>';
+            } catch(e) {}
+        }
+
+        function renderLogCards(logs) {
+            const feed = document.getElementById('log-feed');
+            if (!logs.length) {
+                feed.innerHTML = '<div class="empty"><i class="fas fa-list"></i><p>Eslesen log yok</p></div>';
+                return;
+            }
+            feed.innerHTML = logs.map(l => {
+                const a = (l.action || '').toLowerCase();
+                const iconMap = {ban:'fa-gavel', kick:'fa-right-from-bracket', warn:'fa-triangle-exclamation', unwarn:'fa-check', purge:'fa-trash', lock:'fa-lock', unlock:'fa-lock-open'};
+                const icon = iconMap[a] || 'fa-circle';
+                const cls = ['ban','kick','warn','unwarn','purge','lock','unlock'].includes(a) ? a : 'default';
+                const time = l.timestamp ? new Date(l.timestamp*1000).toLocaleString('tr-TR') : '';
+                const guildName = l.guild_name || l.guild_id || '';
+                return `
+                    <div class="log-card new">
+                        <div class="log-icon ${cls}"><i class="fas ${icon}"></i></div>
+                        <div class="log-info">
+                            <div class="log-title">${badge(l.action)} ${l.target} <span style="color:#80808a;font-weight:400">- ${l.reason}</span></div>
+                            <div class="log-meta"><i class="fas fa-user"></i> ${l.moderator} <i class="fas fa-server" style="margin-left:8px"></i> ${guildName}</div>
+                        </div>
+                        <div class="log-time">${time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('log-filter').addEventListener('change', async e => {
+            try {
+                const r = await fetch('/api/logs/filter?action=' + e.target.value);
+                const d = await r.json();
+                renderLogCards(d.logs);
+                document.getElementById('log-count').textContent = d.logs.length + ' kayit';
+            } catch(e) {}
+        });
+
+        document.getElementById('log-search').addEventListener('input', async e => {
+            const val = e.target.value.trim();
+            if (!val) { loadLogs(); return; }
+            try {
+                const r = await fetch('/api/logs/user/' + encodeURIComponent(val));
+                const d = await r.json();
+                renderLogCards(d.logs);
+                document.getElementById('log-count').textContent = d.logs.length + ' kayit';
+            } catch(e) {}
+        });
+
+        function filterModUsers() {
+            const q = document.getElementById('mod-user-search').value.toLowerCase();
+            const sel = document.getElementById('mod-user');
+            for (let opt of sel.options) {
+                if (!opt.value) continue;
+                const text = opt.text.toLowerCase();
+                opt.style.display = text.includes(q) ? '' : 'none';
+            }
+        }
+
+        async function setBotStatus() {
+            const status = document.querySelector('input[name="bot-status"]:checked').value;
+            try {
+                const r = await fetch('/api/bot/status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({status})
+                });
+                const d = await r.json();
+                showToast(d.message || 'Hata', d.success ? 'success' : 'error');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function restartBot() {
+            if (!confirm('Botu yeniden baslatmak istediginize emin misiniz?')) return;
+            try {
+                const r = await fetch('/api/bot/restart', {method:'POST', headers:{'Content-Type':'application/json'}});
+                const d = await r.json();
+                showToast(d.message, 'success');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function reloadBot() {
+            if (!confirm('Tum komut dosyalarini yeniden yuklemek istediginize emin misiniz?')) return;
+            try {
+                const r = await fetch('/api/bot/reload', {method:'POST', headers:{'Content-Type':'application/json'}});
+                const d = await r.json();
+                showToast(d.message, d.success ? 'success' : 'error');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function shutdownBot() {
+            if (!confirm('Botu kapatmak istediginize emin misiniz?')) return;
+            try {
+                const r = await fetch('/api/bot/shutdown', {method:'POST', headers:{'Content-Type':'application/json'}});
+                const d = await r.json();
+                showToast(d.message, 'success');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function loadModGuilds() {
+            try {
+                const r = await fetch('/api/guilds');
+                const guilds = await r.json();
+                const sel1 = document.getElementById('mod-guild');
+                const sel2 = document.getElementById('warn-user-guild');
+                const opts = guilds.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+                sel1.innerHTML = '<option value="">Sunucu Secin</option>' + opts;
+                sel2.innerHTML = '<option value="">Sunucu Secin</option>' + opts;
+            } catch(e) {}
+        }
+
+        async function loadMembers() {
+            const guildId = document.getElementById('mod-guild').value;
+            const sel = document.getElementById('mod-user');
+            if (!guildId) { sel.innerHTML = '<option value="">Kullanici Secin</option>'; return; }
+            try {
+                const r = await fetch(`/api/members/${guildId}`);
+                const d = await r.json();
+                sel.innerHTML = '<option value="">Kullanici Secin</option>'
+                    + (d.members || []).map(m => `<option value="${m.id}" data-name="${m.name}">${m.display_name} (${m.name})</option>`).join('');
+            } catch(e) { sel.innerHTML = '<option value="">Hata</option>'; }
+        }
+
+        async function executeModAction() {
+            const guild_id = document.getElementById('mod-guild').value;
+            const sel = document.getElementById('mod-user');
+            const user_id = sel.value;
+            const user_name = sel.options[sel.selectedIndex]?.getAttribute('data-name') || 'Bilinmiyor';
+            const action = document.getElementById('mod-action').value;
+            const reason = document.getElementById('mod-reason').value || 'Web panel';
+            if (!guild_id || !user_id) { showToast('Sunucu ve kullanici secin', 'error'); return; }
+            if (!confirm(`${action.toUpperCase()} islemini uygulamak istediginize emin misiniz?`)) return;
+            try {
+                const r = await fetch('/api/mod/action', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({guild_id, user_id, user_name, action, reason})
+                });
+                const d = await r.json();
+                showToast(d.message || 'Hata', d.success ? 'success' : 'error');
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function loadWarnUsers() {
+            const guildId = document.getElementById('warn-user-guild').value;
+            const wrap = document.getElementById('warn-user-select-wrap');
+            const sel = document.getElementById('warn-user-select');
+            if (!guildId) { wrap.style.display = 'none'; return; }
+            try {
+                const r = await fetch(`/api/members/${guildId}`);
+                const d = await r.json();
+                sel.innerHTML = '<option value="">Kullanici Secin</option>'
+                    + (d.members || []).map(m => `<option value="${m.id}">${m.display_name} (${m.name})</option>`).join('');
+                wrap.style.display = 'block';
+            } catch(e) {}
+        }
+
+        async function loadWarnHistory() {
+            const guildId = document.getElementById('warn-user-guild').value;
+            const userId = document.getElementById('warn-user-select').value;
+            const div = document.getElementById('warn-history');
+            if (!guildId || !userId) { div.innerHTML = 'Kullanici secin'; return; }
+            try {
+                const r = await fetch(`/api/warns/${guildId}/${userId}`);
+                const d = await r.json();
+                if (!d.warns || !d.warns.length) { div.innerHTML = 'Bu kullanicinin aktif uyarisi yok.'; return; }
+                div.innerHTML = d.warns.map(w => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0a0a0f;border-radius:8px;margin-bottom:6px">
+                        <div>
+                            <span style="color:#FEE75C;font-weight:600">#${w.id}</span>
+                            <span style="color:#80808a;margin-left:8px">${w.reason}</span>
+                            <span style="color:#80808a;font-size:11px;display:block;margin-top:2px">${w.moderator} - ${new Date(w.timestamp*1000).toLocaleString('tr-TR')}</span>
+                        </div>
+                        <button class="btn-icon danger" onclick="removeWarn('${guildId}','${userId}',${w.id})" title="Kaldir"><i class="fas fa-xmark"></i></button>
+                    </div>
+                `).join('');
+            } catch(e) { div.innerHTML = 'Hata: ' + e; }
+        }
+
+        async function removeWarn(guildId, userId, warnId) {
+            if (!confirm('Bu uyariyi kaldirmak istediginize emin misiniz?')) return;
+            try {
+                const r = await fetch('/api/mod/unwarn', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({guild_id: guildId, user_id: userId, warn_id: warnId})
+                });
+                const d = await r.json();
+                showToast(d.message || 'Hata', d.success ? 'success' : 'error');
+                if (d.success) setTimeout(loadWarnHistory, 1000);
+            } catch(e) { showToast('Hata: ' + e, 'error'); }
+        }
+
+        async function searchUsers() {
+            const q = document.getElementById('user-search-input').value.trim();
+            const div = document.getElementById('user-search-results');
+            if (!q) { div.innerHTML = 'Arama yapmak icin bir isim girin.'; return; }
+            try {
+                const r = await fetch('/api/guilds');
+                const guilds = await r.json();
+                let results = [];
+                for (const g of guilds) {
+                    const mr = await fetch(`/api/members/${g.id}`);
+                    const md = await mr.json();
+                    const matches = (md.members || []).filter(m =>
+                        m.name.toLowerCase().includes(q.toLowerCase()) ||
+                        m.display_name.toLowerCase().includes(q.toLowerCase())
+                    );
+                    matches.forEach(m => results.push({guild: g.name, guild_id: g.id, ...m}));
+                }
+                if (!results.length) { div.innerHTML = 'Eslesen kullanici bulunamadi.'; return; }
+                div.innerHTML = results.map(r => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0a0a0f;border-radius:8px;margin-bottom:4px;font-size:13px">
+                        <span><strong>${r.display_name}</strong> (${r.name})</span>
+                        <span style="color:#80808a">${r.guild}</span>
+                    </div>
+                `).join('');
+            } catch(e) { div.innerHTML = 'Hata: ' + e; }
+        }
+
+        async function loadDogrulama() {
+            try {
+                const r = await fetch('/api/dogrulama');
+                const d = await r.json();
+                const tbody = document.getElementById('dogrulama-body');
+                if (!d.length) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#80808a">Henuz sunucu yok</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = d.map(g => `
+                    <tr>
+                        <td><strong>${g.name}</strong></td>
+                        <td>${g.kayitsiz_rol ? '<span style="color:#57F287"><i class="fas fa-check"></i></span>' : '<span style="color:#ED4245"><i class="fas fa-xmark"></i></span>'}</td>
+                        <td>${g.uye_rol ? '<span style="color:#57F287"><i class="fas fa-check"></i></span>' : '<span style="color:#ED4245"><i class="fas fa-xmark"></i></span>'}</td>
+                        <td>${g.kayit_kanal ? '<span style="color:#57F287"><i class="fas fa-check"></i></span>' : '<span style="color:#80808a"><i class="fas fa-minus"></i></span>'}</td>
+                        <td>${g.dogrulama_kanal ? '<span style="color:#57F287"><i class="fas fa-check"></i></span>' : '<span style="color:#ED4245"><i class="fas fa-xmark"></i></span>'}</td>
+                        <td>${g.panel_mesaj_id ? '<span style="color:#57F287">Gonderilmis</span>' : '<span style="color:#80808a">Gonderilmemis</span>'}</td>
+                        <td>${g.aktif ? '<span class="badge green">Aktif</span>' : '<span class="badge red">Eksik</span>'}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function loadDogrulamaLogs() {
+            try {
+                const r = await fetch('/api/dogrulama/logs');
+                const d = await r.json();
+                const div = document.getElementById('dogrulama-activity');
+                document.getElementById('dogrulama-log-count').textContent = d.logs.length + ' kayit';
+                if (!d.logs || !d.logs.length) {
+                    div.innerHTML = '<div style="color:#80808a;text-align:center;padding:12px">Henuz dogrulama yapilmamis</div>';
+                    return;
+                }
+                div.innerHTML = d.logs.map(l => {
+                    const time = l.timestamp ? new Date(l.timestamp*1000).toLocaleString('tr-TR') : '';
+                    return `
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0a0a0f;border-radius:8px">
+                            <div style="width:32px;height:32px;border-radius:50%;background:rgba(87,242,135,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#57F287"><i class="fas fa-check"></i></div>
+                            <div style="flex:1;min-width:0">
+                                <div style="font-weight:500;font-size:13px">${l.display_name}</div>
+                                <div style="color:#80808a;font-size:11px"><i class="fas fa-server"></i> ${l.guild_name}</div>
+                            </div>
+                            <div style="font-size:10px;color:#585860;white-space:nowrap">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch(e) {}
+        }
+
+        async function loadAyarlar() {
+            try {
+                const r = await fetch('/api/ayarlar');
+                const d = await r.json();
+                const con = document.getElementById('ayarlar-container');
+                if (!d.length) {
+                    con.innerHTML = '<div class="empty"><i class="fas fa-server"></i><p>Henuz sunucu yok</p></div>';
+                    return;
+                }
+                document.getElementById('ayarlar-sayac').textContent = d.length + ' sunucu';
+                con.innerHTML = d.map(g => {
+                    const k = g.karsilama || {};
+                    const o = g.otorol || {};
+                    const rr = g.reaction_rol || {};
+                    const v = g.ses_odasi || {};
+                    const ig = g.instagram || {};
+                    const dg = g.dogrulama || {};
+                    const logs = g.son_islemler || [];
+
+                    function durum(aktif) { return aktif ? '<span class="badge green">Aktif</span>' : '<span class="badge red">Pasif</span>'; }
+                    function badgeAc(a) { const m = {BAN:['Yasak','red'],KICK:['Atma','yellow'],WARN:['Uyari','yellow'],UNWARN:['Affed','green'],PURGE:['Temizlik','blue'],LOCK:['Kilit','red'],UNLOCK:['Acik','green']}; const t=m[a]||[a,'blue']; return `<span class="badge ${t[1]}">${t[0]}</span>`; }
+
+                    return `
+                    <div style="background:#13131a;border:1px solid #1f1f2a;border-radius:16px;padding:24px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+                            <h4 style="font-size:18px;font-weight:700">${g.name}</h4>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">👋 Karsilama</span> ${durum(k.kanal)}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">🎭 Oto-Rol</span> ${durum(o.rol)}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">🎪 React-Rol</span> ${rr.rol_sayisi > 0 ? `<span class="badge green">${rr.rol_sayisi} rol</span>` : '<span class="badge red">Yok</span>'}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">🔊 Ses Odalari</span> ${durum(v.aktif)}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">✅ Dogrulama</span> ${durum(dg.aktif)}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">📸 Instagram</span> ${ig.hesap_sayisi > 0 ? `<span class="badge green">${ig.hesap_sayisi} hesap</span>` : '<span class="badge red">Yok</span>'}
+                                ${(ig.hesaplar||[]).map(h => `<div style="color:#585860;margin-top:2px">@${h.kullanici}${h.mesaj ? ' <span style="color:#57F287">✉</span>' : ''}</div>`).join('')}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">📘 Facebook</span> ${g.facebook ? (g.facebook.sayfa_sayisi > 0 ? `<span class="badge green">${g.facebook.sayfa_sayisi} sayfa</span>` : '<span class="badge red">Yok</span>') : '<span class="badge red">Yok</span>'}
+                                ${((g.facebook||{}).sayfalar||[]).map(h => `<div style="color:#585860;margin-top:2px">/${h.sayfa}${h.kanal_id ? ' <span style="color:#57F287">📢</span>' : ''}</div>`).join('')}
+                            </div>
+                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
+                                <span style="color:#80808a">🐦 X/Twitter</span> ${g.twitter ? (g.twitter.hesap_sayisi > 0 ? `<span class="badge green">${g.twitter.hesap_sayisi} hesap</span>` : '<span class="badge red">Yok</span>') : '<span class="badge red">Yok</span>'}
+                                ${((g.twitter||{}).hesaplar||[]).map(h => `<div style="color:#585860;margin-top:2px">@${h.kullanici}${h.kanal_id ? ' <span style="color:#57F287">📢</span>' : ''}</div>`).join('')}
+                            </div>
+                        </div>
+                        ${logs.length ? `
+                        <div style="border-top:1px solid #1f1f2a;padding-top:12px;margin-top:4px">
+                            <div style="font-size:12px;color:#80808a;margin-bottom:8px"><i class="fas fa-clock"></i> Son Islemler</div>
+                            <div style="display:flex;flex-direction:column;gap:4px">
+                                ${logs.map(l => {
+                                    const time = l.timestamp ? new Date(l.timestamp*1000).toLocaleString('tr-TR') : '';
+                                    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0">
+                                        ${badgeAc(l.action)}
+                                        <span style="color:#e0e0e6">${l.target || ''}</span>
+                                        <span style="color:#80808a">${l.moderator}</span>
+                                        <span style="color:#585860;margin-left:auto">${time}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>` : ''}
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                document.getElementById('ayarlar-container').innerHTML = '<div class="empty"><i class="fas fa-exclamation-triangle"></i><p>Veri alinamadi</p></div>';
+            }
+        }
+
+        loadAll();
+        loadModGuilds();
+        loadDogrulama();
+        loadDogrulamaLogs();
+        loadAyarlar();
+        setInterval(() => {
+            const logPage = document.getElementById('page-logs');
+            const dogrulamaPage = document.getElementById('page-dogrulama');
+            const ayarlarPage = document.getElementById('page-ayarlar');
+            if (!logPage.classList.contains('active') && !dogrulamaPage.classList.contains('active') && !ayarlarPage.classList.contains('active')) loadAll();
+        }, 30000);
+        setInterval(() => {
+            const logPage = document.getElementById('page-logs');
+            if (logPage.classList.contains('active')) loadLogs();
+        }, 300000);
+        setInterval(() => {
+            const dogrulamaPage = document.getElementById('page-dogrulama');
+            if (dogrulamaPage.classList.contains('active')) { loadDogrulama(); loadDogrulamaLogs(); }
+        }, 300000);
+    </script>
+</body>
+</html>

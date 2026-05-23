@@ -1,0 +1,68 @@
+{
+    "guild_id": "322687117983612928",
+    "tarih": "2026-05-18T06:18:25.157864",
+    "instagram_settings.json": {
+        "hesaplar": [
+            {
+                "kullanici": "bctv.s",
+                "kanal_id": "770245629078929428",
+                "son_post_id": "DYZ_CgXITsw",
+                "mesaj": "yeni post @everyone"
+            }
+        ]
+    },
+    "log_settings.json": {
+        "all": "1505222449971859557"
+    },
+    "dogrulama_settings.json": {
+        "kayitsiz_rol": "1492491559805915396",
+        "uye_rol": "697354672134160485",
+        "kayit_kanal": "1492495528725057536",
+        "dogrulama_kanal": "1496188052081479901",
+        "panel_mesaj_id": "1503868562219991101"
+    },
+    "modlogs.json": [
+        {
+            "action": "BAN",
+            "moderator": "WebPanel",
+            "target": "qqqqqqqq2276",
+            "reason": "Web panel",
+            "timestamp": 1778795314
+        }
+    ],
+    "dogrulama_logs.json": [
+        {
+            "guild_id": "322687117983612928",
+            "guild_name": "BCTVs",
+            "user_id": "322336093154312192",
+            "user_tag": "bogachannc",
+            "display_name": "Bogachannc",
+            "timestamp": 1778620713
+        },
+        {
+            "guild_id": "322687117983612928",
+            "guild_name": "BCTVs",
+            "user_id": "1277304785120395348",
+            "user_tag": "can079258",
+            "display_name": "Can",
+            "timestamp": 1778628222
+        },
+        {
+            "guild_id": "322687117983612928",
+            "guild_name": "BCTVs",
+            "user_id": "1392462084239003739",
+            "user_tag": "yurdusevg",
+            "display_name": "YurdusevG",
+            "timestamp": 1778779108
+        },
+        {
+            "guild_id": "322687117983612928",
+            "guild_name": "BCTVs",
+            "user_id": "1504955220084654144",
+            "user_tag": "mr.bb001",
+            "display_name": "Mr. BB",
+            "timestamp": 1778934401
+        }
+    ],
+    "guild_name": "BCTVs"
+}

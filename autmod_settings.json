@@ -1,0 +1,15 @@
+{
+    "1495813451774300281": {
+        "link_filter": false,
+        "spam_filter": true
+    },
+    "1330380041200078991": {
+        "link_filter": false,
+        "spam_filter": true
+    },
+    "319555551187042319": {
+        "link_filter": false,
+        "spam_filter": false,
+        "spam_mute_duration": 5
+    }
+}

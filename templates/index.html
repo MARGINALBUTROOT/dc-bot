@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rootv1 Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>🤖 rootv1</h2>
+                <p>Admin Panel</p>
+            </div>
+            <nav class="menu">
+                <a href="#" class="menu-item active" data-section="dashboard">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="#" class="menu-item" data-section="logs">
+                    <span class="icon">📋</span> Moderasyon Logları
+                </a>
+                <a href="#" class="menu-item" data-section="stats">
+                    <span class="icon">📈</span> İstatistikler
+                </a>
+                <a href="#" class="menu-item" data-section="settings">
+                    <span class="icon">⚙️</span> Ayarlar
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Header -->
+            <header class="header">
+                <h1>Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-small" id="refresh-btn">🔄 Yenile</button>
+                    <div class="bot-status">
+                        <span class="status-indicator" id="status-indicator"></span>
+                        <span id="status-text">Kontrol ediliyor...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sections -->
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Yasaklamalar</h3>
+                        <p class="stat-number" id="stat-bans">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Atılanlar</h3>
+                        <p class="stat-number" id="stat-kicks">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Uyarılar</h3>
+                        <p class="stat-number" id="stat-warns">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Susturmalar</h3>
+                        <p class="stat-number" id="stat-mutes">0</p>
+                    </div>
+                </div>
+
+                <div class="recent-logs">
+                    <h2>Son İşlemler</h2>
+                    <table id="recent-table">
+                        <thead>
+                            <tr>
+                                <th>İşlem</th>
+                                <th>Moderatör</th>
+                                <th>Hedef</th>
+                                <th>Sebep</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-tbody">
+                            <tr>
+                                <td colspan="4">Yükleniyor...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bot-controls">
+                    <h2>Bot Kontrolleri</h2>
+                    <div class="button-group">
+                        <button class="btn btn-danger" id="restart-btn">🔄 Yeniden Başlat</button>
+                        <button class="btn btn-warning" id="stop-btn">⏹️ Durdur</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section id="logs-section" class="section">
+                <div class="filter-bar">
+                    <input type="text" id="search-user" placeholder="Kullanıcı ara...">
+                    <select id="filter-action">
+                        <option value="">Tüm İşlemler</option>
+                        <option value="BAN">Yasaklamalar</option>
+                        <option value="KICK">Atılanlar</option>
+                        <option value="WARN">Uyarılar</option>
+                        <option value="MUTE">Susturmalar</option>
+                        <option value="UNMUTE">Susturma Kaldırıldı</option>
+                        <option value="PURGE">Mesaj Silme</option>
+                        <option value="LOCK">Kanal Kilitleme</option>
+                        <option value="UNLOCK">Kanal Açma</option>
+                    </select>
+                </div>
+
+                <div class="logs-table">
+                    <table id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>İşlem</th>
+                                <th>Moderatör</th>
+                                <th>Hedef</th>
+                                <th>Sebep</th>
+                                <th>Sunucu</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                            <tr>
+                                <td colspan="5">Yükleniyor...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Stats Section -->
+            <section id="stats-section" class="section">
+                <div class="stats-detail">
+                    <div class="chart-container">
+                        <h2>İşlem Türlerine Göre</h2>
+                        <div id="action-stats"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h2>Moderatörlere Göre</h2>
+                        <div id="mod-stats"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings-section" class="section">
+                <div class="settings-card">
+                    <h2>Ayarlar</h2>
+                    <p>Bot ID: <code id="bot-id">Yükleniyor...</code></p>
+                    <p>Admin Panel: <code>http://localhost:5000</code></p>
+                    <p>Moderasyon Logları: <code>modlogs.json</code></p>
+                    <hr>
+                    <h3>Oto-Yenile Süresi</h3>
+                    <input type="number" id="refresh-rate" min="5" max="60" value="10"> saniye
+                    <button class="btn btn-small">Kaydet</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
