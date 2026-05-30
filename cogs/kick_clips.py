@@ -4,6 +4,7 @@ from discord import app_commands
 import json
 import os
 import re
+import asyncio
 from datetime import datetime
 
 class KickClip(commands.Cog):
@@ -56,31 +57,24 @@ class KickClip(commands.Cog):
 
     async def _api_ile_clip(self, channel_name):
         try:
-            from playwright.async_api import async_playwright
-            browser = await self._get_browser()
-            ctx = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            )
-            page = await ctx.new_page()
+            import urllib.request
             api_url = f"https://kick.com/api/v2/channels/{channel_name}/clips?page=1&per_page=1"
-            try:
-                resp = await page.goto(api_url, timeout=15000, wait_until="domcontentloaded")
-                if resp and resp.ok:
-                    body = await resp.text()
-                    data = json.loads(body)
-                    clips = data.get("clips", [])
-                    if clips and len(clips) > 0:
-                        c = clips[0]
-                        clip_data = {
-                            "id": c.get("id"),
-                            "url": f"https://kick.com/clip/{c.get('id')}",
-                            "thumbnail": c.get("thumbnail_url") or c.get("thumb_url")
-                        }
-                        await ctx.close()
-                        return clip_data
-            except:
-                pass
-            await ctx.close()
+            req = urllib.request.Request(api_url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json"
+            })
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=15))
+            body = await loop.run_in_executor(None, resp.read)
+            data = json.loads(body.decode("utf-8"))
+            clips = data.get("clips", [])
+            if clips and len(clips) > 0:
+                c = clips[0]
+                return {
+                    "id": str(c.get("id", "")),
+                    "url": f"https://kick.com/clip/{c.get('id', '')}",
+                    "thumbnail": c.get("thumbnail_url") or c.get("thumb_url") or ""
+                }
             return None
         except:
             return None
