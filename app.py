@@ -354,6 +354,7 @@ def api_ayarlar():
     instagram = _json_oku("instagram_settings.json")
     facebook = _json_oku("facebook_settings.json")
     twitter = _json_oku("twitter_settings.json")
+    kick = _json_oku("kick_clips_settings.json")
     dogrulama = _json_oku("dogrulama_settings.json")
 
     sonuc = []
@@ -367,6 +368,7 @@ def api_ayarlar():
         i = instagram.get(gid, {"hesaplar": []})
         f = facebook.get(gid, {"sayfalar": []})
         t = twitter.get(gid, {"hesaplar": []})
+        kc = kick.get(gid, {"kanallar": []})
         d = dogrulama.get(gid, {})
         guild_logs = logs.get(gid, [])[-5:]
         guild_logs.reverse()
@@ -402,6 +404,10 @@ def api_ayarlar():
             "twitter": {
                 "hesap_sayisi": len(t.get("hesaplar", [])),
                 "hesaplar": t.get("hesaplar", [])
+            },
+            "kick_clips": {
+                "kanal_sayisi": len(kc.get("kanallar", [])),
+                "kanallar": kc.get("kanallar", [])
             },
             "dogrulama": {
                 "aktif": all([d.get("kayitsiz_rol"), d.get("uye_rol"), d.get("dogrulama_kanal")])
