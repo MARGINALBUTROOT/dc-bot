@@ -7,12 +7,29 @@ import re
 import asyncio
 
 COOKIES_FILE = "twitter_cookies.json"
+COOKIES_ENV = "TWITTER_COOKIES"
+
+def _cookies_yukle():
+    if os.path.exists(COOKIES_FILE):
+        return True
+    env_val = os.getenv(COOKIES_ENV)
+    if env_val:
+        try:
+            data = json.loads(env_val)
+            with open(COOKIES_FILE, "w") as f:
+                json.dump(data, f)
+            print(f"[Twitter] Cookies env'den yuklendi -> {COOKIES_FILE}")
+            return True
+        except:
+            print(f"[Twitter] {COOKIES_ENV} env hatasi")
+    return False
 
 class Twitter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.settings_file = "twitter_settings.json"
         self._init_settings()
+        _cookies_yukle()
         self.browser = None
         self.check_twitter.start()
 
@@ -49,7 +66,7 @@ class Twitter(commands.Cog):
         return self.browser
 
     async def _kullanici_scrape(self, kullanici):
-        if not os.path.exists(COOKIES_FILE):
+        if not _cookies_yukle():
             return kullanici, kullanici, None
 
         kullanici = kullanici.strip().strip("@").strip("/")
@@ -139,7 +156,7 @@ class Twitter(commands.Cog):
         mesaj: str = None,
         listele: bool = False
     ):
-        if not os.path.exists(COOKIES_FILE):
+        if not _cookies_yukle():
             await interaction.response.send_message(
                 "Twitter cookie dosyasi bulunamadi!\n\n"
                 "**Adim adim kurulum:**\n"
@@ -147,7 +164,8 @@ class Twitter(commands.Cog):
                 "2. X.com'a gir ve login ol\n"
                 "3. Eklenti ikonuna tikla -> Export tusuna bas (panoya kopyalar)\n"
                 "4. Notepad ac -> Ctrl+V -> `twitter_cookies.json` olarak bot klasorune kaydet\n"
-                "5. Bu komutu tekrar dene",
+                "5. Veya `TWITTER_COOKIES` env degiskenine JSON'u tek satir olarak ekle\n"
+                "6. Bu komutu tekrar dene",
                 ephemeral=True
             )
             return
@@ -212,8 +230,8 @@ class Twitter(commands.Cog):
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
     async def x_twitter_test(self, interaction: discord.Interaction, kullanici: str = None):
-        if not os.path.exists(COOKIES_FILE):
-            await interaction.response.send_message("Twitter cookie dosyasi bulunamadi!", ephemeral=True)
+        if not _cookies_yukle():
+            await interaction.response.send_message("Twitter cookie dosyasi bulunamadi!\n`TWITTER_COOKIES` env degiskenini de dene.", ephemeral=True)
             return
         settings = self._get_settings(interaction.guild.id)
         hesaplar = settings.get("hesaplar", [])
@@ -259,7 +277,7 @@ class Twitter(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def check_twitter(self):
-        if not os.path.exists(COOKIES_FILE):
+        if not _cookies_yukle():
             return
         all_data = self._get_all()
         for gid, settings in all_data.items():
