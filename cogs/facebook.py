@@ -68,7 +68,7 @@ class Facebook(commands.Cog):
 
     async def _sayfa_scrape(self, girilen):
         if not _cookies_yukle():
-            return girilen, girilen, None
+            return girilen, girilen, None, "Cookie bulunamadi"
 
         girilen = girilen.strip().strip("/")
         for prefix in ["https://www.facebook.com/", "http://www.facebook.com/", "https://facebook.com/", "http://facebook.com/", "www.facebook.com/", "facebook.com/"]:
@@ -102,12 +102,12 @@ class Facebook(commands.Cog):
 
             page = await context.new_page()
             await page.goto(f"https://www.facebook.com/{girilen}", wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
 
             title = await page.title()
             sayfa_adi = title if title else girilen
 
-            posts = await page.evaluate("""
+            posts_raw = await page.evaluate("""
                 () => {
                     const items = [];
                     const articles = document.querySelectorAll('[data-pagelet^="FeedUnit"], article, [role="article"]');
@@ -126,14 +126,29 @@ class Facebook(commands.Cog):
                 }
             """)
 
+            page_url = page.url
             await context.close()
-            return girilen, sayfa_adi, posts if posts else []
+
+            if title and "login" in title.lower():
+                return girilen, sayfa_adi, None, "Facebook login sayfasina yonlendiriliyor - cookie gecersiz olabilir"
+
+            if not posts_raw:
+                return girilen, sayfa_adi, [], "Sayfa acildi ama post bulunamadi (selectors guncel olmayabilir)"
+
+            return girilen, sayfa_adi, posts_raw, None
 
         except Exception as e:
-            print(f"[FACEBOOK SCRAPE HATA] {e}")
+            hata = str(e)
+            print(f"[FACEBOOK SCRAPE HATA] {hata}")
+            if "browser" in hata.lower() or "chromium" in hata.lower() or "executable" in hata.lower():
+                err_msg = "Chromium bulunamadi - Render'a `playwright install chromium` eklenmeli"
+            elif "timeout" in hata.lower():
+                err_msg = "Sayfa yuklenemedi (timeout)"
+            else:
+                err_msg = f"Hata: {type(e).__name__}"
             try: await context.close()
             except: pass
-            return girilen, girilen, None
+            return girilen, girilen, None, err_msg
 
     @app_commands.command(name="facebook", description="Facebook sayfa bildirimleri")
     @app_commands.describe(
@@ -234,10 +249,13 @@ class Facebook(commands.Cog):
             return
         await interaction.response.defer(ephemeral=True)
         gonderildi = 0
+        hatalar = []
         for h in sayfalar:
             try:
-                _, _, posts = await self._sayfa_scrape(h["sayfa"])
-                if posts:
+                _, _, posts, hata = await self._sayfa_scrape(h["sayfa"])
+                if hata:
+                    hatalar.append(f"@{h['sayfa']}: {hata}")
+                elif posts:
                     son = posts[0]
                     kanal_obj = interaction.guild.get_channel(int(h["kanal_id"]))
                     if kanal_obj:
@@ -258,14 +276,21 @@ class Facebook(commands.Cog):
                         gonderildi += 1
                     if son.get("post_id"):
                         h["son_post_id"] = son["post_id"]
+                else:
+                    hatalar.append(f"@{h['sayfa']}: post bulunamadi (sayfa kapali, cookie gecersiz veya sayfa yapis degismis olabilir)")
             except Exception as e:
+                hatalar.append(f"@{h['sayfa']}: {type(e).__name__}")
                 print(f"[FACEBOOK TEST HATA] {e}")
         if gonderildi > 0:
             try:
                 self._save_all(self._get_all() | {str(interaction.guild.id): settings})
             except Exception as e:
                 print(f"[FACEBOOK KAYIT HATA] {e}")
-        await interaction.followup.send(f"Test bildirimi {gonderildi} kanala gonderildi.", ephemeral=True)
+        if gonderildi > 0 or hatalar:
+            msg = f"Test bildirimi {gonderildi} kanala gonderildi."
+            if hatalar:
+                msg += "\n\n**Hatalar:**\n" + "\n".join(hatalar[:5])
+            await interaction.followup.send(msg, ephemeral=True)
 
     @tasks.loop(minutes=5)
     async def check_facebook(self):
@@ -278,7 +303,7 @@ class Facebook(commands.Cog):
                 continue
             for h in settings.get("sayfalar", []):
                 try:
-                    _, _, posts = await self._sayfa_scrape(h["sayfa"])
+                    _, _, posts, _ = await self._sayfa_scrape(h["sayfa"])
                     if not posts:
                         continue
                     son = posts[0]
