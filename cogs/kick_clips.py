@@ -61,7 +61,9 @@ class KickClip(commands.Cog):
             api_url = f"https://kick.com/api/v2/channels/{channel_name}/clips?page=1&per_page=1"
             req = urllib.request.Request(api_url, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "Origin": "https://kick.com",
+                "Referer": "https://kick.com/"
             })
             loop = asyncio.get_event_loop()
             resp = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=15))
@@ -70,9 +72,10 @@ class KickClip(commands.Cog):
             clips = data.get("clips", [])
             if clips and len(clips) > 0:
                 c = clips[0]
+                clip_id = str(c.get("id", ""))
                 return {
-                    "id": str(c.get("id", "")),
-                    "url": f"https://kick.com/clip/{c.get('id', '')}",
+                    "id": clip_id,
+                    "url": f"https://kick.com/{channel_name}/clips/{clip_id}",
                     "thumbnail": c.get("thumbnail_url") or c.get("thumb_url") or ""
                 }
             return None
@@ -197,32 +200,32 @@ class KickClip(commands.Cog):
 
         if listele and not ekle:
             if not settings["kanallar"]:
-                await interaction.response.send_message("Takip edilen Kick kanali yok.", ephemeral=True)
+                await interaction.response.send_message("Takip edilen Kick kanali yok.")
                 return
             liste = "\n".join([f"`{k['kick_kanal']}` → <#{k['kanal_id']}> — {k.get('mesaj', '@everyone')}" for k in settings["kanallar"]])
-            await interaction.response.send_message(f"**Takip edilen kanallar:**\n{liste}", ephemeral=True)
+            await interaction.response.send_message(f"**Takip edilen kanallar:**\n{liste}")
             return
 
         if not ekle:
-            await interaction.response.send_message("Lutfen bir Kick kanal adi girin!\nOrnek: `burakbilas` (kick.com/burakbilas)", ephemeral=True)
+            await interaction.response.send_message("Lutfen bir Kick kanal adi girin!\nOrnek: `burakbilas` (kick.com/burakbilas)")
             return
 
         ekle = self._temizle(ekle)
         for k in settings["kanallar"]:
             if k["kick_kanal"] == ekle:
-                await interaction.response.send_message("Bu kanal zaten takip ediliyor!", ephemeral=True)
+                await interaction.response.send_message("Bu kanal zaten takip ediliyor!")
                 return
 
         yeni = {"kick_kanal": ekle, "kanal_id": str(kanal.id) if kanal else None, "mesaj": mesaj or "@everyone", "son_id": None}
         if not yeni["kanal_id"]:
-            await interaction.response.send_message("Kanal belirtmelisiniz!", ephemeral=True)
+            await interaction.response.send_message("Kanal belirtmelisiniz!")
             return
 
         settings["kanallar"].append(yeni)
         all_data = self._get_all()
         all_data[str(interaction.guild.id)] = settings
         self._save_all(all_data)
-        await interaction.response.send_message(f"✅ `{ekle}` takip ediliyor. Yeni klip → <#{kanal.id}> / Mesaj: {yeni['mesaj']}", ephemeral=True)
+        await interaction.response.send_message(f"✅ `{ekle}` takip ediliyor. Yeni klip → <#{kanal.id}> / Mesaj: {yeni['mesaj']}")
 
     @app_commands.command(name="kick-clip-sil", description="Kick klip takibini kaldir")
     @app_commands.describe(kick_kanal="Kaldirilacak Kick kanal adi")
@@ -240,33 +243,21 @@ class KickClip(commands.Cog):
                 all_data = self._get_all()
                 all_data[str(interaction.guild.id)] = settings
                 self._save_all(all_data)
-                await interaction.response.send_message(f"❌ `{kick_kanal}` takipten cikarildi.", ephemeral=True)
+                await interaction.response.send_message(f"❌ `{kick_kanal}` takipten cikarildi.")
                 return
-        await interaction.response.send_message("Bu kanal takip edilmiyor.", ephemeral=True)
+        await interaction.response.send_message("Bu kanal takip edilmiyor.")
 
     @app_commands.command(name="testkick-clip", description="Kick kanalinin son clipini test et")
     @app_commands.describe(kick_kanal="Kick kanal adi (ornek: forsen)")
     @app_commands.guild_only()
     async def testkick_clip(self, interaction: discord.Interaction, kick_kanal: str):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         kick_kanal = self._temizle(kick_kanal)
-        try:
-            browser = await self._get_browser()
-            ctx = await browser.new_context(user_agent="Mozilla/5.0")
-            page = await ctx.new_page()
-            await page.goto(f"https://kick.com/{kick_kanal}", timeout=20000, wait_until="domcontentloaded")
-            await page.wait_for_timeout(3000)
-            sayfa_basligi = await page.title()
-            await ctx.close()
-        except Exception as e:
-            sayfa_basligi = f"HATA: {e}"
         son = await self._son_clip(kick_kanal)
         if not son:
             await interaction.followup.send(
-                f"Clip bulunamadi. Kick sayfasi: `{sayfa_basligi}`\n"
-                f"Su adrese bak: https://kick.com/{kick_kanal}/clips\n"
-                f"Kanalda clip var mi kontrol et.",
-                ephemeral=True
+                f"Clip bulunamadi. Su adrese bak: https://kick.com/{kick_kanal}/clips\n"
+                f"Kanalda clip var mi kontrol et."
             )
             return
         embed = discord.Embed(
@@ -277,7 +268,7 @@ class KickClip(commands.Cog):
         if son.get("thumbnail"):
             embed.set_image(url=son["thumbnail"])
         embed.add_field(name="Link", value=son["url"], inline=False)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(KickClip(bot))
