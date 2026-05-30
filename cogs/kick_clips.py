@@ -198,7 +198,7 @@ class KickClip(commands.Cog):
 
         settings = self._get_settings(interaction.guild.id)
 
-        if listele and not ekle:
+        if listele:
             if not settings["kanallar"]:
                 await interaction.response.send_message("Takip edilen Kick kanali yok.")
                 return

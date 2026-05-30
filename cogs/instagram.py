@@ -90,7 +90,7 @@ class Instagram(commands.Cog):
     ):
         settings = self._get_settings(interaction.guild.id)
 
-        if listele or (not kullanici and not kanal):
+        if listele:
             embed = discord.Embed(title="Instagram Bildirimler", color=discord.Color(0xE1306C))
             hesaplar = settings.get("hesaplar", [])
             if hesaplar:
@@ -100,7 +100,13 @@ class Instagram(commands.Cog):
                         deger += f"\nMesaj: {h['mesaj']}"
                     embed.add_field(name=f"@{h['kullanici']}", value=deger, inline=False)
             else:
-                embed.description = "Henuz takip edilen hesap yok.\n`/instagram kullanici:hesap kanal:#kanal mesaj:opsiyonel`"
+                embed.description = "Henuz takip edilen hesap yok."
+            await interaction.response.send_message(embed=embed)
+            return
+
+        if not kullanici and not kanal:
+            embed = discord.Embed(title="Instagram Bildirimler", color=discord.Color(0xE1306C))
+            embed.description = "Kullanım: `/instagram kullanici:hesap kanal:#kanal mesaj:opsiyonel`"
             await interaction.response.send_message(embed=embed)
             return
 

@@ -154,7 +154,7 @@ class Facebook(commands.Cog):
     ):
         settings = self._get_settings(interaction.guild.id)
 
-        if listele or (not sayfa and not kanal):
+        if listele:
             embed = discord.Embed(title="Facebook Bildirimler", color=discord.Color(0x1877F2))
             sayfalar = settings.get("sayfalar", [])
             if sayfalar:
@@ -164,7 +164,13 @@ class Facebook(commands.Cog):
                         deger += f"\nMesaj: {h['mesaj']}"
                     embed.add_field(name=h.get("page_name", h["sayfa"]), value=deger, inline=False)
             else:
-                embed.description = "Henuz takip edilen sayfa yok.\n`/facebook sayfa:sayfa_adi kanal:#kanal mesaj:opsiyonel`"
+                embed.description = "Henuz takip edilen sayfa yok."
+            await interaction.response.send_message(embed=embed)
+            return
+
+        if not sayfa and not kanal:
+            embed = discord.Embed(title="Facebook Bildirimler", color=discord.Color(0x1877F2))
+            embed.description = "Kullanım: `/facebook sayfa:sayfa_adi kanal:#kanal mesaj:opsiyonel`"
             await interaction.response.send_message(embed=embed)
             return
 

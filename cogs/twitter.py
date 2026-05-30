@@ -158,7 +158,7 @@ class Twitter(commands.Cog):
     ):
         settings = self._get_settings(interaction.guild.id)
 
-        if listele or (not kullanici and not kanal):
+        if listele:
             embed = discord.Embed(title="X/Twitter Bildirimler", color=discord.Color(0x1DA1F2))
             hesaplar = settings.get("hesaplar", [])
             if hesaplar:
@@ -168,7 +168,13 @@ class Twitter(commands.Cog):
                         deger += f"\nMesaj: {h['mesaj']}"
                     embed.add_field(name=f"@{h['kullanici']}", value=deger, inline=False)
             else:
-                embed.description = "Henuz takip edilen hesap yok.\n`/x-twitter kullanici:hesap kanal:#kanal mesaj:opsiyonel`"
+                embed.description = "Henuz takip edilen hesap yok."
+            await interaction.response.send_message(embed=embed)
+            return
+
+        if not kullanici and not kanal:
+            embed = discord.Embed(title="X/Twitter Bildirimler", color=discord.Color(0x1DA1F2))
+            embed.description = "Kullanım: `/x-twitter kullanici:hesap kanal:#kanal mesaj:opsiyonel`"
             await interaction.response.send_message(embed=embed)
             return
 
