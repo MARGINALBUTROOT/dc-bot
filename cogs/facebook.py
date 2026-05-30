@@ -152,20 +152,6 @@ class Facebook(commands.Cog):
         mesaj: str = None,
         listele: bool = False
     ):
-        if not _cookies_yukle():
-            await interaction.response.send_message(
-                "Facebook cookie dosyasi bulunamadi!\n\n"
-                "**Adim adim kurulum:**\n"
-                "1. Chrome web magazadan `EditThisCookie` eklentisini kur\n"
-                "2. Facebook'a gir ve login ol\n"
-                "3. Eklenti ikonuna tikla -> Export tusuna bas (panoya kopyalar)\n"
-                "4. Notepad ac -> Ctrl+V -> `facebook_cookies.json` olarak bot klasorune kaydet\n"
-                "5. Veya `FACEBOOK_COOKIES` env degiskenine JSON'u tek satir olarak ekle\n"
-                "6. Bu komutu tekrar dene",
-                ephemeral=True
-            )
-            return
-
         settings = self._get_settings(interaction.guild.id)
 
         if listele or (not sayfa and not kanal):
@@ -186,21 +172,25 @@ class Facebook(commands.Cog):
             await interaction.response.send_message("Sayfa adi ve kanal gerekli!", ephemeral=True)
             return
 
-        await interaction.response.defer()
-        page_id, page_name, posts = await self._sayfa_scrape(sayfa)
-        sayfalar = settings.get("sayfalar", [])
+        sayfa_adi = sayfa.strip().lower()
+        for prefix in ["https://www.facebook.com/", "http://www.facebook.com/", "https://facebook.com/", "http://facebook.com/", "www.facebook.com/", "facebook.com/"]:
+            if sayfa_adi.startswith(prefix):
+                sayfa_adi = sayfa_adi[len(prefix):]
+                break
+        sayfa_adi = sayfa_adi.split("/")[0].split("?")[0]
 
+        sayfalar = settings.get("sayfalar", [])
         for h in sayfalar:
-            if h.get("page_id") == page_id or h["sayfa"] == sayfa.strip().lower():
+            if h["sayfa"] == sayfa_adi:
                 if mesaj:
                     h["mesaj"] = mesaj
                     self._save_all(self._get_all() | {str(interaction.guild.id): settings})
-                    await interaction.followup.send(f"Sayfa icin mesaj guncellendi: {mesaj}", ephemeral=True)
+                    await interaction.response.send_message(f"Sayfa icin mesaj guncellendi: {mesaj}")
                 else:
-                    await interaction.followup.send("Bu sayfa zaten takip ediliyor! Mesaj degistirmek icin `mesaj` parametresini kullan.", ephemeral=True)
+                    await interaction.response.send_message("Bu sayfa zaten takip ediliyor!")
                 return
 
-        yeni = {"sayfa": sayfa.strip().lower(), "page_id": page_id, "page_name": page_name or sayfa.strip(), "kanal_id": str(kanal.id), "son_post_id": None}
+        yeni = {"sayfa": sayfa_adi, "page_id": sayfa_adi, "page_name": sayfa_adi, "kanal_id": str(kanal.id), "son_post_id": None}
         if mesaj:
             yeni["mesaj"] = mesaj
         sayfalar.append(yeni)
@@ -215,11 +205,11 @@ class Facebook(commands.Cog):
         self._save_all(all_data)
 
         embed = discord.Embed(title="Facebook Sayfa Eklendi", color=discord.Color(0x1877F2))
-        embed.add_field(name="Sayfa", value=page_name or sayfa, inline=False)
+        embed.add_field(name="Sayfa", value=sayfa_adi, inline=False)
         embed.add_field(name="Bildirim Kanal", value=kanal.mention, inline=False)
         if mesaj:
             embed.add_field(name="Mesaj", value=mesaj, inline=False)
-        await interaction.followup.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="testfacebook", description="Facebook bildirimlerini test et")
     @app_commands.describe(sayfa="Test edilecek sayfa adi (opsiyonel, bos = tumu)")

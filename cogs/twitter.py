@@ -156,20 +156,6 @@ class Twitter(commands.Cog):
         mesaj: str = None,
         listele: bool = False
     ):
-        if not _cookies_yukle():
-            await interaction.response.send_message(
-                "Twitter cookie dosyasi bulunamadi!\n\n"
-                "**Adim adim kurulum:**\n"
-                "1. Chrome web magazadan `EditThisCookie` eklentisini kur\n"
-                "2. X.com'a gir ve login ol\n"
-                "3. Eklenti ikonuna tikla -> Export tusuna bas (panoya kopyalar)\n"
-                "4. Notepad ac -> Ctrl+V -> `twitter_cookies.json` olarak bot klasorune kaydet\n"
-                "5. Veya `TWITTER_COOKIES` env degiskenine JSON'u tek satir olarak ekle\n"
-                "6. Bu komutu tekrar dene",
-                ephemeral=True
-            )
-            return
-
         settings = self._get_settings(interaction.guild.id)
 
         if listele or (not kullanici and not kanal):
@@ -190,21 +176,25 @@ class Twitter(commands.Cog):
             await interaction.response.send_message("Kullanici adi ve kanal gerekli!", ephemeral=True)
             return
 
-        await interaction.response.defer()
-        page_id, page_name, tweets = await self._kullanici_scrape(kullanici)
-        hesaplar = settings.get("hesaplar", [])
+        kullanici_adi = kullanici.strip().lstrip("@").lower()
+        for prefix in ["https://x.com/", "http://x.com/", "https://twitter.com/", "http://twitter.com/", "x.com/", "twitter.com/"]:
+            if kullanici_adi.startswith(prefix):
+                kullanici_adi = kullanici_adi[len(prefix):]
+                break
+        kullanici_adi = kullanici_adi.split("/")[0].split("?")[0]
 
+        hesaplar = settings.get("hesaplar", [])
         for h in hesaplar:
-            if h["kullanici"].lower() == kullanici.strip().lower().lstrip("@"):
+            if h["kullanici"].lower() == kullanici_adi:
                 if mesaj:
                     h["mesaj"] = mesaj
                     self._save_all(self._get_all() | {str(interaction.guild.id): settings})
-                    await interaction.followup.send(f"@{kullanici} icin mesaj guncellendi: {mesaj}", ephemeral=True)
+                    await interaction.response.send_message(f"@{kullanici_adi} icin mesaj guncellendi: {mesaj}")
                 else:
-                    await interaction.followup.send("Bu hesap zaten takip ediliyor! Mesaj degistirmek icin `mesaj` parametresini kullan.", ephemeral=True)
+                    await interaction.response.send_message("Bu hesap zaten takip ediliyor!")
                 return
 
-        yeni = {"kullanici": kullanici.strip().lstrip("@"), "kanal_id": str(kanal.id), "son_tweet_id": None}
+        yeni = {"kullanici": kullanici_adi, "kanal_id": str(kanal.id), "son_tweet_id": None}
         if mesaj:
             yeni["mesaj"] = mesaj
         hesaplar.append(yeni)
@@ -219,11 +209,11 @@ class Twitter(commands.Cog):
         self._save_all(all_data)
 
         embed = discord.Embed(title="X/Twitter Hesap Eklendi", color=discord.Color(0x1DA1F2))
-        embed.add_field(name="Kullanici", value=f"@{kullanici}", inline=False)
+        embed.add_field(name="Kullanici", value=f"@{kullanici_adi}", inline=False)
         embed.add_field(name="Bildirim Kanal", value=kanal.mention, inline=False)
         if mesaj:
             embed.add_field(name="Mesaj", value=mesaj, inline=False)
-        await interaction.followup.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="x-twitter-test", description="X/Twitter bildirimlerini test et")
     @app_commands.describe(kullanici="Test edilecek kullanici adi (opsiyonel, bos = tumu)")
