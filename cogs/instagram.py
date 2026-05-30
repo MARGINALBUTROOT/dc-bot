@@ -116,9 +116,9 @@ class Instagram(commands.Cog):
                 if mesaj:
                     h["mesaj"] = mesaj
                     self._save_all(self._get_all() | {str(interaction.guild.id): settings})
-                    await interaction.response.send_message(f"@{kullanici} icin mesaj guncellendi: {mesaj}", ephemeral=True)
+                    await interaction.response.send_message(f"@{kullanici} icin mesaj guncellendi: {mesaj}")
                 else:
-                    await interaction.response.send_message("Bu hesap zaten takip ediliyor! Mesaj degistirmek icin `mesaj` parametresini kullan.", ephemeral=True)
+                    await interaction.response.send_message("Bu hesap zaten takip ediliyor! Mesaj degistirmek icin `mesaj` parametresini kullan.")
                 return
 
         yeni = {"kullanici": kullanici, "kanal_id": str(kanal.id), "son_post_id": None}
