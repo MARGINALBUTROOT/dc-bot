@@ -60,6 +60,7 @@ class Twitter(commands.Cog):
     async def _get_browser(self):
         if self.browser and self.browser.is_connected():
             return self.browser
+        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/render/project/.playwright")
         from playwright.async_api import async_playwright
         p = await async_playwright().start()
         self.browser = await p.chromium.launch(headless=True)
