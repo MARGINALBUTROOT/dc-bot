@@ -38,6 +38,14 @@ class KickClip(commands.Cog):
         except:
             return {}
 
+    def _temizle(self, ad):
+        ad = ad.strip().lower()
+        for prefix in ["https://kick.com/", "http://kick.com/", "kick.com/", "https://www.kick.com/", "www.kick.com/"]:
+            if ad.startswith(prefix):
+                ad = ad[len(prefix):]
+                break
+        return ad.split("/")[0].split("?")[0]
+
     async def _get_browser(self):
         if self.browser and self.browser.is_connected():
             return self.browser
@@ -122,9 +130,9 @@ class KickClip(commands.Cog):
 
     @app_commands.command(name="kick-clip", description="Kick klip bildirimlerini ayarla")
     @app_commands.describe(
-        ekle="Kick kanal adi (ornek: forsen)",
+        ekle="Kick kanal adi veya URL (ornek: forsen)",
         kanal="Kliplerin atilacagi Discord kanali",
-        mesaj="Klipten once yazilacak mesaj (opsiyonel)",
+        mesaj="Klipten once yazilacak mesaj",
         listele="Mevcut takipleri listele (True/False)"
     )
     @app_commands.guild_only()
@@ -135,7 +143,7 @@ class KickClip(commands.Cog):
 
         settings = self._get_settings(interaction.guild.id)
 
-        if listele:
+        if listele and not ekle:
             if not settings["kanallar"]:
                 await interaction.response.send_message("Takip edilen Kick kanali yok.", ephemeral=True)
                 return
@@ -144,10 +152,10 @@ class KickClip(commands.Cog):
             return
 
         if not ekle:
-            await interaction.response.send_message("Lutfen bir Kick kanal adi girin!", ephemeral=True)
+            await interaction.response.send_message("Lutfen bir Kick kanal adi girin!\nOrnek: `burakbilas` (kick.com/burakbilas)", ephemeral=True)
             return
 
-        ekle = ekle.strip().lower()
+        ekle = self._temizle(ekle)
         for k in settings["kanallar"]:
             if k["kick_kanal"] == ekle:
                 await interaction.response.send_message("Bu kanal zaten takip ediliyor!", ephemeral=True)
@@ -173,8 +181,9 @@ class KickClip(commands.Cog):
             return
 
         settings = self._get_settings(interaction.guild.id)
+        kick_kanal = self._temizle(kick_kanal)
         for i, k in enumerate(settings["kanallar"]):
-            if k["kick_kanal"] == kick_kanal.strip().lower():
+            if k["kick_kanal"] == kick_kanal:
                 settings["kanallar"].pop(i)
                 all_data = self._get_all()
                 all_data[str(interaction.guild.id)] = settings
@@ -188,7 +197,8 @@ class KickClip(commands.Cog):
     @app_commands.guild_only()
     async def testkick_clip(self, interaction: discord.Interaction, kick_kanal: str):
         await interaction.response.defer(ephemeral=True)
-        son = await self._son_clip(kick_kanal.strip().lower())
+        kick_kanal = self._temizle(kick_kanal)
+        son = await self._son_clip(kick_kanal)
         if not son:
             await interaction.followup.send("Clip bulunamadi veya sayfa acilamadi.", ephemeral=True)
             return
