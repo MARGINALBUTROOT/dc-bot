@@ -54,7 +54,42 @@ class KickClip(commands.Cog):
         self.browser = await p.chromium.launch(headless=True)
         return self.browser
 
+    async def _api_ile_clip(self, channel_name):
+        try:
+            from playwright.async_api import async_playwright
+            browser = await self._get_browser()
+            ctx = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            )
+            page = await ctx.new_page()
+            api_url = f"https://kick.com/api/v2/channels/{channel_name}/clips?page=1&per_page=1"
+            try:
+                resp = await page.goto(api_url, timeout=15000, wait_until="domcontentloaded")
+                if resp and resp.ok:
+                    body = await resp.text()
+                    data = json.loads(body)
+                    clips = data.get("clips", [])
+                    if clips and len(clips) > 0:
+                        c = clips[0]
+                        clip_data = {
+                            "id": c.get("id"),
+                            "url": f"https://kick.com/clip/{c.get('id')}",
+                            "thumbnail": c.get("thumbnail_url") or c.get("thumb_url")
+                        }
+                        await ctx.close()
+                        return clip_data
+            except:
+                pass
+            await ctx.close()
+            return None
+        except:
+            return None
+
     async def _son_clip(self, channel_name):
+        api_result = await self._api_ile_clip(channel_name)
+        if api_result:
+            return api_result
+
         try:
             browser = await self._get_browser()
             ctx = await browser.new_context(
@@ -68,24 +103,47 @@ class KickClip(commands.Cog):
                 await ctx.close()
                 return None
 
-            await page.wait_for_timeout(4000)
+            await page.wait_for_timeout(5000)
 
             clip_data = None
             try:
-                clip_link = await page.query_selector("a[href*='/clip/']")
-                if clip_link:
-                    href = await clip_link.get_attribute("href")
-                    if href:
-                        clip_id = href.split("/clip/")[-1]
-                        clip_data = {"id": clip_id, "url": f"https://kick.com{href}"}
-                        try:
-                            img = await clip_link.query_selector("img")
-                            if img:
-                                clip_data["thumbnail"] = await img.get_attribute("src")
-                        except:
-                            pass
+                hrefs = await page.evaluate("""
+                    () => {
+                        const links = document.querySelectorAll('a[href*="/clip/"]');
+                        return Array.from(links).map(a => a.href);
+                    }
+                """)
+                if hrefs and len(hrefs) > 0:
+                    href = hrefs[0]
+                    clip_id = href.split("/clip/")[-1].split("?")[0]
+                    clip_data = {"id": clip_id, "url": href}
             except:
                 pass
+
+            if not clip_data:
+                try:
+                    html = await page.content()
+                    matches = re.findall(r'/clip/([a-f0-9\-]+)', html)
+                    if matches:
+                        clip_id = matches[0]
+                        clip_data = {"id": clip_id, "url": f"https://kick.com/clip/{clip_id}"}
+                except:
+                    pass
+
+            if clip_data:
+                try:
+                    thumb = await page.evaluate(f"""
+                        () => {{
+                            const link = document.querySelector('a[href*="/clip/{clip_data['id']}"]');
+                            if (!link) return null;
+                            const img = link.querySelector('img');
+                            return img ? img.src : null;
+                        }}
+                    """)
+                    if thumb:
+                        clip_data["thumbnail"] = thumb
+                except:
+                    pass
 
             await ctx.close()
             return clip_data
@@ -198,9 +256,24 @@ class KickClip(commands.Cog):
     async def testkick_clip(self, interaction: discord.Interaction, kick_kanal: str):
         await interaction.response.defer(ephemeral=True)
         kick_kanal = self._temizle(kick_kanal)
+        try:
+            browser = await self._get_browser()
+            ctx = await browser.new_context(user_agent="Mozilla/5.0")
+            page = await ctx.new_page()
+            await page.goto(f"https://kick.com/{kick_kanal}", timeout=20000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(3000)
+            sayfa_basligi = await page.title()
+            await ctx.close()
+        except Exception as e:
+            sayfa_basligi = f"HATA: {e}"
         son = await self._son_clip(kick_kanal)
         if not son:
-            await interaction.followup.send("Clip bulunamadi veya sayfa acilamadi.", ephemeral=True)
+            await interaction.followup.send(
+                f"Clip bulunamadi. Kick sayfasi: `{sayfa_basligi}`\n"
+                f"Su adrese bak: https://kick.com/{kick_kanal}/clips\n"
+                f"Kanalda clip var mi kontrol et.",
+                ephemeral=True
+            )
             return
         embed = discord.Embed(
             title=f"Son Klip — {kick_kanal}",
