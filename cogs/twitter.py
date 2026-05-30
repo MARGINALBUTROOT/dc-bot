@@ -272,6 +272,22 @@ class Twitter(commands.Cog):
                 print(f"[TWITTER KAYIT HATA] {e}")
         await interaction.followup.send(f"Test bildirimi {gonderildi} kanala gonderildi.", ephemeral=True)
 
+    @app_commands.command(name="x-twitter-sil", description="X/Twitter hesap takibini kaldir")
+    @app_commands.describe(kullanici="Kaldirilacak kullanici adi")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    async def x_twitter_sil(self, interaction: discord.Interaction, kullanici: str):
+        settings = self._get_settings(interaction.guild.id)
+        hesaplar = settings.get("hesaplar", [])
+        for i, h in enumerate(hesaplar):
+            if h["kullanici"].lower() == kullanici.strip().lstrip("@").lower():
+                hesaplar.pop(i)
+                settings["hesaplar"] = hesaplar
+                self._save_all(self._get_all() | {str(interaction.guild.id): settings})
+                await interaction.response.send_message(f"❌ `{kullanici}` takipten cikarildi.")
+                return
+        await interaction.response.send_message("Bu kullanici takip edilmiyor.")
+
     @tasks.loop(minutes=5)
     async def check_twitter(self):
         if not _cookies_yukle():

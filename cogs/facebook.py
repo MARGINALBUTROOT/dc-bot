@@ -293,6 +293,22 @@ class Facebook(commands.Cog):
                 msg += "\n\n**Hatalar:**\n" + "\n".join(hatalar[:5])
             await interaction.followup.send(msg, ephemeral=True)
 
+    @app_commands.command(name="facebook-sil", description="Facebook sayfa takibini kaldir")
+    @app_commands.describe(sayfa="Kaldirilacak sayfa adi")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    async def facebook_sil(self, interaction: discord.Interaction, sayfa: str):
+        settings = self._get_settings(interaction.guild.id)
+        sayfalar = settings.get("sayfalar", [])
+        for i, h in enumerate(sayfalar):
+            if h["sayfa"].lower() == sayfa.strip().lower():
+                sayfalar.pop(i)
+                settings["sayfalar"] = sayfalar
+                self._save_all(self._get_all() | {str(interaction.guild.id): settings})
+                await interaction.response.send_message(f"❌ `{sayfa}` takipten cikarildi.")
+                return
+        await interaction.response.send_message("Bu sayfa takip edilmiyor.")
+
     @tasks.loop(minutes=5)
     async def check_facebook(self):
         if not _cookies_yukle():
