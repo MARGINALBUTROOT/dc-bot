@@ -76,6 +76,7 @@ class KickClip(commands.Cog):
                 clip_id = str(c.get("id", ""))
                 return {
                     "id": clip_id,
+                    "title": c.get("title") or c.get("slug") or c.get("description") or "",
                     "url": f"https://kick.com/{channel_name}/clips/{clip_id}",
                     "thumbnail": c.get("thumbnail_url") or c.get("thumb_url") or ""
                 }
@@ -168,13 +169,15 @@ class KickClip(commands.Cog):
                     if not kanal:
                         continue
                     embed = discord.Embed(
-                        title=f"Yeni Klip — {k['kick_kanal']}",
+                        title=son.get("title") or f"Yeni Klip — {k['kick_kanal']}",
                         url=son["url"],
                         color=discord.Color.purple(),
                         timestamp=datetime.now()
                     )
                     if son.get("thumbnail"):
                         embed.set_image(url=son["thumbnail"])
+                    embed.add_field(name="Kanal", value=k['kick_kanal'], inline=True)
+                    embed.add_field(name="Link", value=son["url"], inline=False)
                     mesaj = k.get("mesaj", "@everyone")
                     await kanal.send(content=mesaj, embed=embed)
                 except:
@@ -262,12 +265,13 @@ class KickClip(commands.Cog):
             )
             return
         embed = discord.Embed(
-            title=f"Son Klip — {kick_kanal}",
+            title=son.get("title") or f"Son Klip — {kick_kanal}",
             url=son["url"],
             color=discord.Color.purple()
         )
         if son.get("thumbnail"):
             embed.set_image(url=son["thumbnail"])
+        embed.add_field(name="Kanal", value=kick_kanal, inline=True)
         embed.add_field(name="Link", value=son["url"], inline=False)
         await interaction.followup.send(embed=embed)
 
