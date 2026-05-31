@@ -352,8 +352,6 @@ def api_ayarlar():
     reaction = _json_oku("reaction_roles.json")
     voice = _json_oku("voice_settings.json")
     instagram = _json_oku("instagram_settings.json")
-    facebook = _json_oku("facebook_settings.json")
-    twitter = _json_oku("twitter_settings.json")
     kick = _json_oku("kick_clips_settings.json")
     dogrulama = _json_oku("dogrulama_settings.json")
 
@@ -366,8 +364,6 @@ def api_ayarlar():
         r = reaction.get(gid, {"roller": []})
         v = voice.get(gid, {})
         i = instagram.get(gid, {"hesaplar": []})
-        f = facebook.get(gid, {"sayfalar": []})
-        t = twitter.get(gid, {"hesaplar": []})
         kc = kick.get(gid, {"kanallar": []})
         d = dogrulama.get(gid, {})
         guild_logs = logs.get(gid, [])[-5:]
@@ -396,14 +392,6 @@ def api_ayarlar():
             "instagram": {
                 "hesap_sayisi": len(i.get("hesaplar", [])),
                 "hesaplar": i.get("hesaplar", [])
-            },
-            "facebook": {
-                "sayfa_sayisi": len(f.get("sayfalar", [])),
-                "sayfalar": f.get("sayfalar", [])
-            },
-            "twitter": {
-                "hesap_sayisi": len(t.get("hesaplar", [])),
-                "hesaplar": t.get("hesaplar", [])
             },
             "kick_clips": {
                 "kanal_sayisi": len(kc.get("kanallar", [])),

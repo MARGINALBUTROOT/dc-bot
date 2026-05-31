@@ -366,7 +366,7 @@ async def on_guild_join(guild):
     embed.add_field(name="🔊 Ses Odaları", value="`/sesoda`", inline=False)
     embed.add_field(name="🎉 Çekiliş", value="`/giveaway`", inline=False)
     embed.add_field(name="📊 Anket", value="`/anket`", inline=False)
-    embed.add_field(name="🌐 Sosyal Medya", value="`/instagram` `/facebook` `/x-twitter` `/testinstagram` `/testfacebook` `/x-twitter-test` `/dil`", inline=False)
+    embed.add_field(name="🌐 Sosyal Medya", value="`/instagram` `/testinstagram` `/dil`", inline=False)
     embed.add_field(name="✅ Doğrulama", value="`/üyedoğrulama`", inline=False)
     embed.add_field(name="ℹ️ Bilgi / 🎮 Eğlence", value="`/userinfo` `/serverinfo` `/help` `/yazı-tura` `/zar` `/espri` `/avatar` `/ping`", inline=False)
 

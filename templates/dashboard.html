@@ -1047,14 +1047,6 @@
                                 ${(ig.hesaplar||[]).map(h => `<div style="color:#585860;margin-top:2px">@${h.kullanici}${h.mesaj ? ' <span style="color:#57F287">✉</span>' : ''}</div>`).join('')}
                             </div>
                             <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
-                                <span style="color:#80808a">📘 Facebook</span> ${g.facebook ? (g.facebook.sayfa_sayisi > 0 ? `<span class="badge green">${g.facebook.sayfa_sayisi} sayfa</span>` : '<span class="badge red">Yok</span>') : '<span class="badge red">Yok</span>'}
-                                ${((g.facebook||{}).sayfalar||[]).map(h => `<div style="color:#585860;margin-top:2px">/${h.sayfa}${h.kanal_id ? ' <span style="color:#57F287">📢</span>' : ''}</div>`).join('')}
-                            </div>
-                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
-                                <span style="color:#80808a">🐦 X/Twitter</span> ${g.twitter ? (g.twitter.hesap_sayisi > 0 ? `<span class="badge green">${g.twitter.hesap_sayisi} hesap</span>` : '<span class="badge red">Yok</span>') : '<span class="badge red">Yok</span>'}
-                                ${((g.twitter||{}).hesaplar||[]).map(h => `<div style="color:#585860;margin-top:2px">@${h.kullanici}${h.kanal_id ? ' <span style="color:#57F287">📢</span>' : ''}</div>`).join('')}
-                            </div>
-                            <div style="background:#0a0a0f;border-radius:8px;padding:10px 14px;font-size:12px">
                                 <span style="color:#80808a">⏺️ Kick Clips</span> ${g.kick_clips ? (g.kick_clips.kanal_sayisi > 0 ? `<span class="badge green">${g.kick_clips.kanal_sayisi} kanal</span>` : '<span class="badge red">Yok</span>') : '<span class="badge red">Yok</span>'}
                                 ${((g.kick_clips||{}).kanallar||[]).map(h => `<div style="color:#585860;margin-top:2px">${h.kick_kanal} <span style="color:#57F287">🎬</span></div>`).join('')}
                             </div>
