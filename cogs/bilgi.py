@@ -25,7 +25,7 @@ KATEGORILER = {
     "anket": {"emoji": "📊", "name": "Anket", "desc": "Oylama anketleri",
         "cmds": ["`/anket`"]},
     "sosyal": {"emoji": "🌐", "name": "Sosyal Medya", "desc": "Sosyal medya takip",
-        "cmds": ["`/instagram`", "`/facebook`", "`/x-twitter`", "`/testinstagram`", "`/testfacebook`", "`/x-twitter-test`", "`/dil`"]},
+        "cmds": ["`/instagram`", "`/testinstagram`", "`/dil`"]},
     "dogrulama": {"emoji": "✅", "name": "Doğrulama", "desc": "Üye doğrulama sistemi",
         "cmds": ["`/üyedoğrulama`"]},
     "bilgi": {"emoji": "ℹ️", "name": "Bilgi", "desc": "Bilgi komutları",
