@@ -108,53 +108,81 @@ class Facebook(commands.Cog):
             title = await page.title()
             sayfa_adi = title if title else girilen
 
+            # Scroll down a bit to trigger post loading
+            try:
+                await page.evaluate("window.scrollBy(0, 800)")
+                await page.wait_for_timeout(3000)
+            except:
+                pass
+
             posts_raw = await page.evaluate("""
                 () => {
                     const items = [];
+                    const seen = new Set();
 
-                    // Strategy 1: data-pagelet attribute (classic Facebook)
-                    let selectors = [
-                        '[data-pagelet*="FeedUnit"]',
-                        '[role="article"]',
+                    // Find the main feed area first
+                    let feed = document.querySelector('[role="feed"]');
+                    if (!feed) {
+                        // Try finding largest content area
+                        const main = document.querySelector('[role="main"], main, #contentArea, div[data-pagelet="ProfileTabs"], div[data-pagelet="ProfileTimeline"]');
+                        if (main) feed = main;
+                    }
+                    if (!feed) feed = document.body;
+
+                    // Find candidate post containers within the feed
+                    const candidates = feed.querySelectorAll([
+                        'div[data-pagelet*="FeedUnit"]',
+                        'div[role="article"]',
                         'article',
-                        'div[role="feed"] > div',
                         'div.x1yztbdb',
                         'div.x1n2onr6',
                         'div[data-ad-rendering-role]',
-                        'div[data-pagelet]'
-                    ];
-                    let containers = document.querySelectorAll(selectors.join(','));
+                        'div[data-pagelet]',
+                        'div.x78zum5'
+                    ].join(','));
 
-                    // If no containers found, try finding all divs with post links
-                    if (containers.length === 0) {
-                        const allDivs = document.querySelectorAll('div');
-                        const postLinks = document.querySelectorAll('a[href*="/posts/"], a[href*="/photo/"], a[href*="/video/"]');
-                        if (postLinks.length > 0) {
-                            containers = [];
-                            postLinks.forEach(a => {
-                                let parent = a.closest('div[role="feed"] > div, div.x1yztbdb, div.x1n2onr6, [data-pagelet], article');
-                                if (parent && !containers.includes(parent)) containers.push(parent);
-                            });
-                        }
-                    }
-
-                    containers.forEach(el => {
+                    candidates.forEach(el => {
+                        // Get the first meaningful post link
                         const links = el.querySelectorAll('a[href*="/posts/"], a[href*="/photo/"], a[href*="/video/"]');
+                        if (links.length === 0) return;
                         let url = '';
-                        if (links.length > 0) url = links[0].href.split('?')[0];
+                        for (const l of links) {
+                            const h = l.href.split('?')[0];
+                            // Skip notifications, settings, etc.
+                            if (h.includes('/notifications/') || h.includes('/settings/') || h.includes('/friends/')) continue;
+                            if (h.includes('/posts/') || h.includes('/photo/') || h.includes('/video/')) {
+                                url = h;
+                                break;
+                            }
+                        }
+                        if (!url) return;
 
-                        const textEl = el.querySelector('[dir="auto"]') || el.querySelector('span.x193iq5w, span[style*="white-space"]');
-                        const text = textEl ? textEl.innerText : '';
+                        // Get the main text content
+                        const textEl = el.querySelector('[dir="auto"] span, [dir="auto"] > div, span.x193iq5w, div[style*="white-space"]');
+                        const text = textEl ? textEl.innerText.trim() : '';
+
+                        // Filter out UI elements (short text, language names, nav items)
+                        if (text.length > 0 && text.length < 15) return;
+                        const uiKeywords = ['русский', 'english', 'türkçe', 'deutsch', 'español', 'français', 'العربية', 'português',
+                            '日本語', '中文', 'login', 'sign up', 'create account', 'password', 'email', 'menu', 'home', 'watch',
+                            'groups', 'pages', 'see more', 'about', 'photos', 'videos', 'posts', 'reels', 'shorts', 'marketplace'];
+                        const lower = text.toLowerCase();
+                        if (uiKeywords.some(k => lower.includes(k)) && text.length < 30) return;
 
                         const imgs = el.querySelectorAll('img[src*="scontent"], img[src*="fbcdn"]');
                         const imgUrl = imgs.length > 0 ? imgs[0].src : '';
 
-                        const id = url.split('/').pop().split('?')[0] || text.slice(0, 50);
-                        if (url || text) {
-                            items.push({ post_id: id, mesaj: text.slice(0, 500), resim: imgUrl, url: url });
-                        }
+                        const postId = url.split('/').pop().split('?')[0];
+                        const key = postId || text.slice(0, 30);
+                        if (seen.has(key)) return;
+                        seen.add(key);
+
+                        items.push({ post_id: postId, mesaj: text.slice(0, 500), resim: imgUrl, url: url, text_len: text.length });
                     });
-                    return items.slice(0, 5);
+
+                    // Sort by text length (longer = more likely real post), return top 3
+                    items.sort((a, b) => b.text_len - a.text_len);
+                    return items.slice(0, 3);
                 }
             """)
 
