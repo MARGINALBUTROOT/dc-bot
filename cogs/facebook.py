@@ -111,17 +111,48 @@ class Facebook(commands.Cog):
             posts_raw = await page.evaluate("""
                 () => {
                     const items = [];
-                    const articles = document.querySelectorAll('[data-pagelet^="FeedUnit"], article, [role="article"]');
-                    articles.forEach(el => {
-                        const textEl = el.querySelector('[dir="auto"]');
-                        const text = textEl ? textEl.innerText : '';
+
+                    // Strategy 1: data-pagelet attribute (classic Facebook)
+                    let selectors = [
+                        '[data-pagelet*="FeedUnit"]',
+                        '[role="article"]',
+                        'article',
+                        'div[role="feed"] > div',
+                        'div.x1yztbdb',
+                        'div.x1n2onr6',
+                        'div[data-ad-rendering-role]',
+                        'div[data-pagelet]'
+                    ];
+                    let containers = document.querySelectorAll(selectors.join(','));
+
+                    // If no containers found, try finding all divs with post links
+                    if (containers.length === 0) {
+                        const allDivs = document.querySelectorAll('div');
+                        const postLinks = document.querySelectorAll('a[href*="/posts/"], a[href*="/photo/"], a[href*="/video/"]');
+                        if (postLinks.length > 0) {
+                            containers = [];
+                            postLinks.forEach(a => {
+                                let parent = a.closest('div[role="feed"] > div, div.x1yztbdb, div.x1n2onr6, [data-pagelet], article');
+                                if (parent && !containers.includes(parent)) containers.push(parent);
+                            });
+                        }
+                    }
+
+                    containers.forEach(el => {
                         const links = el.querySelectorAll('a[href*="/posts/"], a[href*="/photo/"], a[href*="/video/"]');
                         let url = '';
                         if (links.length > 0) url = links[0].href.split('?')[0];
-                        const imgs = el.querySelectorAll('img[src*="scontent"]');
+
+                        const textEl = el.querySelector('[dir="auto"]') || el.querySelector('span.x193iq5w, span[style*="white-space"]');
+                        const text = textEl ? textEl.innerText : '';
+
+                        const imgs = el.querySelectorAll('img[src*="scontent"], img[src*="fbcdn"]');
                         const imgUrl = imgs.length > 0 ? imgs[0].src : '';
+
                         const id = url.split('/').pop().split('?')[0] || text.slice(0, 50);
-                        items.push({ post_id: id, mesaj: text.slice(0, 500), resim: imgUrl, url: url });
+                        if (url || text) {
+                            items.push({ post_id: id, mesaj: text.slice(0, 500), resim: imgUrl, url: url });
+                        }
                     });
                     return items.slice(0, 5);
                 }
