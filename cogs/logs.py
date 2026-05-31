@@ -60,12 +60,10 @@ class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
         settings[self.log_type] = str(kanal.id)
         self.cog._save_guild_settings(self.guild_id, settings)
 
-        embed = discord.Embed(
-            title="Log Kanalı Ayarlandı",
-            description=f"**{LOG_TYPES.get(self.log_type, self.log_type)}** → {kanal.mention}",
-            color=discord.Color.green()
+        await interaction.response.send_message(
+            f"✅ **{LOG_TYPES.get(self.log_type, self.log_type)}** → {kanal.mention} olarak ayarlandı.",
+            ephemeral=True
         )
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
 
 class LogView(discord.ui.View):
     def __init__(self, cog, guild_id):
