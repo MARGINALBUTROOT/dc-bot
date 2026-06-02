@@ -1,21 +1,12 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict, deque
-import asyncio
 import os
 
-ESIK = 3
-ARALIK = 5
-
-ADMIN_ROLLER = [
-    discord.Permissions.administrator,
-    discord.Permissions.ban_members,
-    discord.Permissions.kick_members,
-    discord.Permissions.manage_guild,
-    discord.Permissions.manage_channels,
-    discord.Permissions.manage_roles,
-]
+WARN_ESIK = 4
+KICK_ESIK = 9
+ARALIK = 10
 
 WHITELIST = set()
 env_wl = os.getenv("NUKE_WHITELIST", "")
@@ -28,11 +19,12 @@ if env_wl:
 class AntiNuke(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.ban_log = defaultdict(lambda: deque(maxlen=ESIK))
-        self.kick_log = defaultdict(lambda: deque(maxlen=ESIK))
-        self.channel_log = defaultdict(lambda: deque(maxlen=ESIK))
-        self.role_log = defaultdict(lambda: deque(maxlen=ESIK))
-        self.webhook_log = defaultdict(lambda: deque(maxlen=ESIK))
+        self.ban_log = defaultdict(lambda: deque(maxlen=KICK_ESIK))
+        self.kick_log = defaultdict(lambda: deque(maxlen=KICK_ESIK))
+        self.channel_log = defaultdict(lambda: deque(maxlen=KICK_ESIK))
+        self.role_log = defaultdict(lambda: deque(maxlen=KICK_ESIK))
+        self.webhook_log = defaultdict(lambda: deque(maxlen=KICK_ESIK))
+        self.warned = set()
 
     async def _yetkili_mi(self, guild, uye_id):
         uye = guild.get_member(uye_id)
@@ -65,15 +57,31 @@ class AntiNuke(commands.Cog):
         except:
             pass
 
-    async def _saldirgani_banla(self, guild, saldirgan_id, sebep):
+    async def _saldirgani_at(self, guild, saldirgan_id, sebep):
         try:
             uye = guild.get_member(saldirgan_id)
             if uye:
-                await uye.ban(reason=sebep)
-                await self._log_gonder(guild, f"Saldırgan Banlandı: {uye}", discord.Color.red(),
+                await uye.kick(reason=sebep)
+                await self._log_gonder(guild, f"Saldırgan Atıldı: {uye}", discord.Color.red(),
                     ("Sebep", sebep), ("Kullanıcı", f"{uye} ({uye.id})"))
         except:
             pass
+
+    def _kontrol(self, log, gid, now):
+        if len(log) < 2:
+            return None
+        onceki = log[0]
+        if (now - onceki).total_seconds() > ARALIK:
+            log.clear()
+            log.append(now)
+            return None
+        sayi = len(log)
+        if sayi >= KICK_ESIK:
+            return "kick"
+        if sayi >= WARN_ESIK and gid not in self.warned:
+            self.warned.add(gid)
+            return "warn"
+        return None
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
@@ -88,22 +96,28 @@ class AntiNuke(commands.Cog):
                 now = datetime.now()
                 gid = (guild.id, entry.user.id)
                 self.ban_log[gid].append(now)
-                if len(self.ban_log[gid]) >= ESIK:
-                    onceki = self.ban_log[gid][0]
-                    if (now - onceki).total_seconds() <= ARALIK:
-                        await self._log_gonder(guild, "Toplu Ban Tespit Edildi!", discord.Color.red(),
-                            ("Saldırgan", f"{entry.user} ({entry.user.id})"),
-                            ("Ban Sayısı", len(self.ban_log[gid])),
-                            ("Süre", f"{ARALIK} saniye içinde {ESIK}+ ban"))
-                        await self._saldirgani_banla(guild, entry.user.id, "Anti-Nuke: Toplu ban saldırısı")
-                        async for giris in guild.audit_logs(action=discord.AuditLogAction.ban):
-                            if (datetime.now() - giris.created_at).total_seconds() > 30:
-                                break
-                            try:
-                                await giris.user.unban(guild, reason="Anti-Nuke: Toplu ban geri alma")
-                            except:
-                                pass
-                        self.ban_log[gid].clear()
+                durum = self._kontrol(self.ban_log[gid], gid, now)
+                if durum == "warn":
+                    await self._log_gonder(guild, "Şüpheli Ban Aktivitesi!", discord.Color.orange(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Ban Sayısı", f"{len(self.ban_log[gid])} / {KICK_ESIK}"),
+                        ("Uyarı", f"{KICK_ESIK - len(self.ban_log[gid])} ban daha yaparsa sunucudan atılacak"))
+                elif durum == "kick":
+                    await self._log_gonder(guild, "Toplu Ban Tespit Edildi!", discord.Color.red(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Ban Sayısı", len(self.ban_log[gid])),
+                        ("Süre", f"{ARALIK} saniye içinde {KICK_ESIK}+ ban"),
+                        ("Aksiyon", "Sunucudan atıldı + banlananlar geri alındı"))
+                    await self._saldirgani_at(guild, entry.user.id, "Anti-Nuke: Toplu ban saldırısı")
+                    async for giris in guild.audit_logs(action=discord.AuditLogAction.ban):
+                        if (datetime.now() - giris.created_at).total_seconds() > 60:
+                            break
+                        try:
+                            await guild.unban(giris.target, reason="Anti-Nuke: Ban geri alma")
+                        except:
+                            pass
+                    self.ban_log[gid].clear()
+                    self.warned.discard(gid)
                 break
         except:
             pass
@@ -124,14 +138,19 @@ class AntiNuke(commands.Cog):
                 now = datetime.now()
                 gid = (guild.id, entry.user.id)
                 self.kick_log[gid].append(now)
-                if len(self.kick_log[gid]) >= ESIK:
-                    onceki = self.kick_log[gid][0]
-                    if (now - onceki).total_seconds() <= ARALIK:
-                        await self._log_gonder(guild, "Toplu Kick Tespit Edildi!", discord.Color.red(),
-                            ("Saldırgan", f"{entry.user} ({entry.user.id})"),
-                            ("Kick Sayısı", len(self.kick_log[gid])))
-                        await self._saldirgani_banla(guild, entry.user.id, "Anti-Nuke: Toplu kick saldırısı")
-                        self.kick_log[gid].clear()
+                durum = self._kontrol(self.kick_log[gid], gid, now)
+                if durum == "warn":
+                    await self._log_gonder(guild, "Şüpheli Kick Aktivitesi!", discord.Color.orange(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Kick Sayısı", f"{len(self.kick_log[gid])} / {KICK_ESIK}"),
+                        ("Uyarı", f"{KICK_ESIK - len(self.kick_log[gid])} kick daha yaparsa sunucudan atılacak"))
+                elif durum == "kick":
+                    await self._log_gonder(guild, "Toplu Kick Tespit Edildi!", discord.Color.red(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Kick Sayısı", len(self.kick_log[gid])))
+                    await self._saldirgani_at(guild, entry.user.id, "Anti-Nuke: Toplu kick saldırısı")
+                    self.kick_log[gid].clear()
+                    self.warned.discard(gid)
                 break
         except:
             pass
@@ -149,15 +168,20 @@ class AntiNuke(commands.Cog):
                     return
                 now = datetime.now()
                 gid = (guild.id, entry.user.id)
-                self.channel_log[gid].append((now, channel))
-                if len(self.channel_log[gid]) >= ESIK:
-                    onceki = self.channel_log[gid][0][0]
-                    if (now - onceki).total_seconds() <= ARALIK:
-                        await self._log_gonder(guild, "Toplu Kanal Silme Tespit Edildi!", discord.Color.red(),
-                            ("Saldırgan", f"{entry.user} ({entry.user.id})"),
-                            ("Silinen Kanal Sayısı", len(self.channel_log[gid])))
-                        await self._saldirgani_banla(guild, entry.user.id, "Anti-Nuke: Toplu kanal silme saldırısı")
-                        self.channel_log[gid].clear()
+                self.channel_log[gid].append(now)
+                durum = self._kontrol(self.channel_log[gid], gid, now)
+                if durum == "warn":
+                    await self._log_gonder(guild, "Şüpheli Kanal Silme!", discord.Color.orange(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Silinen Kanal Sayısı", f"{len(self.channel_log[gid])} / {KICK_ESIK}"),
+                        ("Uyarı", f"{KICK_ESIK - len(self.channel_log[gid])} kanal daha silerse sunucudan atılacak"))
+                elif durum == "kick":
+                    await self._log_gonder(guild, "Toplu Kanal Silme Tespit Edildi!", discord.Color.red(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Silinen Kanal Sayısı", len(self.channel_log[gid])))
+                    await self._saldirgani_at(guild, entry.user.id, "Anti-Nuke: Toplu kanal silme saldırısı")
+                    self.channel_log[gid].clear()
+                    self.warned.discard(gid)
                 break
         except:
             pass
@@ -175,15 +199,20 @@ class AntiNuke(commands.Cog):
                     return
                 now = datetime.now()
                 gid = (guild.id, entry.user.id)
-                self.role_log[gid].append((now, role))
-                if len(self.role_log[gid]) >= ESIK:
-                    onceki = self.role_log[gid][0][0]
-                    if (now - onceki).total_seconds() <= ARALIK:
-                        await self._log_gonder(guild, "Toplu Rol Silme Tespit Edildi!", discord.Color.red(),
-                            ("Saldırgan", f"{entry.user} ({entry.user.id})"),
-                            ("Silinen Rol Sayısı", len(self.role_log[gid])))
-                        await self._saldirgani_banla(guild, entry.user.id, "Anti-Nuke: Toplu rol silme saldırısı")
-                        self.role_log[gid].clear()
+                self.role_log[gid].append(now)
+                durum = self._kontrol(self.role_log[gid], gid, now)
+                if durum == "warn":
+                    await self._log_gonder(guild, "Şüpheli Rol Silme!", discord.Color.orange(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Silinen Rol Sayısı", f"{len(self.role_log[gid])} / {KICK_ESIK}"),
+                        ("Uyarı", f"{KICK_ESIK - len(self.role_log[gid])} rol daha silerse sunucudan atılacak"))
+                elif durum == "kick":
+                    await self._log_gonder(guild, "Toplu Rol Silme Tespit Edildi!", discord.Color.red(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Silinen Rol Sayısı", len(self.role_log[gid])))
+                    await self._saldirgani_at(guild, entry.user.id, "Anti-Nuke: Toplu rol silme saldırısı")
+                    self.role_log[gid].clear()
+                    self.warned.discard(gid)
                 break
         except:
             pass
@@ -202,14 +231,19 @@ class AntiNuke(commands.Cog):
                 now = datetime.now()
                 gid = (guild.id, entry.user.id)
                 self.webhook_log[gid].append(now)
-                if len(self.webhook_log[gid]) >= ESIK:
-                    onceki = self.webhook_log[gid][0]
-                    if (now - onceki).total_seconds() <= ARALIK:
-                        await self._log_gonder(guild, "Toplu Webhook Oluşturma Tespit Edildi!", discord.Color.red(),
-                            ("Saldırgan", f"{entry.user} ({entry.user.id})"),
-                            ("Webhook Sayısı", len(self.webhook_log[gid])))
-                        await self._saldirgani_banla(guild, entry.user.id, "Anti-Nuke: Toplu webhook oluşturma saldırısı")
-                        self.webhook_log[gid].clear()
+                durum = self._kontrol(self.webhook_log[gid], gid, now)
+                if durum == "warn":
+                    await self._log_gonder(guild, "Şüpheli Webhook Oluşturma!", discord.Color.orange(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Webhook Sayısı", f"{len(self.webhook_log[gid])} / {KICK_ESIK}"),
+                        ("Uyarı", f"{KICK_ESIK - len(self.webhook_log[gid])} webhook daha oluşturursa sunucudan atılacak"))
+                elif durum == "kick":
+                    await self._log_gonder(guild, "Toplu Webhook Oluşturma Tespit Edildi!", discord.Color.red(),
+                        ("Saldırgan", f"{entry.user} ({entry.user.id})"),
+                        ("Webhook Sayısı", len(self.webhook_log[gid])))
+                    await self._saldirgani_at(guild, entry.user.id, "Anti-Nuke: Toplu webhook oluşturma saldırısı")
+                    self.webhook_log[gid].clear()
+                    self.warned.discard(gid)
                 break
         except:
             pass
