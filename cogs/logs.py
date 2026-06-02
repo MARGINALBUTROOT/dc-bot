@@ -10,29 +10,27 @@ LOG_TYPES = {
     "all": "Tüm Loglar",
     "message_delete": "Mesaj Silme",
     "message_edit": "Mesaj Düzenleme",
-    "voice": "Ses Kanalları",
-    "member": "Üye Değişiklikleri",
-    "channel": "Kanal/Thread İşlemleri",
-    "role": "Rol Değişiklikleri",
-    "moderation": "Moderasyon İşlemleri",
+    "voice": "Sesli Kanallar",
+    "member": "Üye İşlemleri",
+    "channel": "Kanal İşlemleri",
+    "role": "Rol İşlemleri",
+    "moderation": "Moderasyon",
     "invite": "Davet",
     "event": "Etkinlik",
-    "pins": "Sabit Mesaj",
-    "stage": "Ses Sahnesi",
+    "pins": "Sabit Mesajlar",
+    "stage": "Sahne Kanalları",
     "automod": "AutoMod",
-    "audit": "Denetim Kaydı",
+    "audit": "Denetim",
     "user": "Kullanıcı Güncelleme",
     "sticker": "Sticker/Soundboard",
-    "integration": "Entegrasyon",
-    "anomaly": "Anomali Tespiti"
+    "integration": "Entegrasyon"
 }
 
 LOG_EMOJIS = {
     "all": "📋", "message_delete": "🗑️", "message_edit": "✏️", "voice": "🔊",
     "member": "👤", "channel": "📁", "role": "🎖️", "moderation": "🛡️",
     "invite": "📨", "event": "📅", "pins": "📌", "stage": "🎤", "automod": "🤖",
-    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗",
-    "anomaly": "🚨"
+    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗"
 }
 
 class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
@@ -79,6 +77,32 @@ class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
             ephemeral=True
         )
 
+class RolSelect(discord.ui.RoleSelect):
+    def __init__(self, cog, guild_id):
+        super().__init__(placeholder="Etiketlenecek rolü seç...", min_values=0, max_values=1)
+        self.cog = cog
+        self.guild_id = guild_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
+            return
+        settings = self.cog._get_guild_settings(self.guild_id)
+        if not self.values:
+            settings.pop("anomaly_role", None)
+            self.cog._save_guild_settings(self.guild_id, settings)
+            await interaction.response.edit_message(content="✅ Anomali etiket rolü temizlendi. Sadece admin roller otomatik etiketlenecek.", view=None)
+            return
+        rol = self.values[0]
+        settings["anomaly_role"] = str(rol.id)
+        self.cog._save_guild_settings(self.guild_id, settings)
+        await interaction.response.edit_message(content=f"✅ Anomali uyarılarında **{rol.mention}** da etiketlenecek.", view=None)
+
+class RolSecView(discord.ui.View):
+    def __init__(self, cog, guild_id):
+        super().__init__(timeout=60)
+        self.add_item(RolSelect(cog, guild_id))
+
 class LogView(discord.ui.View):
     def __init__(self, cog, guild_id):
         super().__init__(timeout=120)
@@ -100,6 +124,20 @@ class LogView(discord.ui.View):
                 await interaction.response.send_modal(KanalModal(self.cog, self.guild_id, lt))
             btn.callback = callback
             self.add_item(btn)
+
+        rol_btn = discord.ui.Button(
+            label="Anomali Etiket Rolü",
+            emoji="📢",
+            style=discord.ButtonStyle.primary,
+            custom_id="log_rol"
+        )
+        async def rol_callback(interaction: discord.Interaction):
+            if not interaction.user.guild_permissions.administrator:
+                await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
+                return
+            await interaction.response.send_message("Aşağıdan etiketlenecek rolü seç (boş bırakıp gönderirsen temizlenir):", view=RolSecView(self.cog, self.guild_id), ephemeral=True)
+        rol_btn.callback = rol_callback
+        self.add_item(rol_btn)
 
     async def on_timeout(self):
         if self.message:
@@ -187,6 +225,11 @@ class LogSistemi(commands.Cog):
             if val:
                 k = interaction.guild.get_channel(int(val))
                 ayarlanan.append(f"{LOG_EMOJIS.get(key, '📝')} **{LOG_TYPES[key]}** → {k.mention if k else 'silinmiş kanal'}")
+        ek_rol_id = settings.get("anomaly_role")
+        if ek_rol_id:
+            ek_rol = interaction.guild.get_role(int(ek_rol_id))
+            if ek_rol:
+                ayarlanan.append(f"📢 **Anomali Etiket Rolü** → {ek_rol.mention}")
         if ayarlanan:
             embed.add_field(name="Mevcut Ayarlar", value="\n".join(ayarlanan), inline=False)
         else:
@@ -812,10 +855,17 @@ class LogSistemi(commands.Cog):
     ANOMALI_ARALIK = 12
 
     async def _anomali_role_ping(self, guild):
+        roller = []
         for rol in guild.roles:
             if rol.permissions.administrator and rol.name != "@everyone":
-                return rol.mention
-        return "@everyone"
+                roller.append(rol.mention)
+        settings = self._get_guild_settings(guild.id)
+        ek_rol = settings.get("anomaly_role")
+        if ek_rol:
+            r = guild.get_role(int(ek_rol))
+            if r:
+                roller.append(r.mention)
+        return " ".join(roller) if roller else "@everyone"
 
     async def _anomali_kontrol(self, takip, gid, now, tur, saldiran, guild):
         takip[gid].append(now)
