@@ -4,6 +4,7 @@ from discord import app_commands
 import json
 import os
 from datetime import datetime
+from collections import defaultdict, deque
 
 LOG_TYPES = {
     "all": "Tüm Loglar",
@@ -22,14 +23,16 @@ LOG_TYPES = {
     "audit": "Denetim Kaydı",
     "user": "Kullanıcı Güncelleme",
     "sticker": "Sticker/Soundboard",
-    "integration": "Entegrasyon"
+    "integration": "Entegrasyon",
+    "anomaly": "Anomali Tespiti"
 }
 
 LOG_EMOJIS = {
     "all": "📋", "message_delete": "🗑️", "message_edit": "✏️", "voice": "🔊",
     "member": "👤", "channel": "📁", "role": "🎖️", "moderation": "🛡️",
     "invite": "📨", "event": "📅", "pins": "📌", "stage": "🎤", "automod": "🤖",
-    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗"
+    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗",
+    "anomaly": "🚨"
 }
 
 class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
@@ -112,6 +115,13 @@ class LogSistemi(commands.Cog):
         self.bot = bot
         self.settings_file = "log_settings.json"
         self._init_settings()
+        self.ban_takip = defaultdict(lambda: deque(maxlen=10))
+        self.kick_takip = defaultdict(lambda: deque(maxlen=10))
+        self.kanal_takip = defaultdict(lambda: deque(maxlen=10))
+        self.rol_takip = defaultdict(lambda: deque(maxlen=10))
+        self.webhook_takip = defaultdict(lambda: deque(maxlen=10))
+        self.join_takip = defaultdict(lambda: deque(maxlen=10))
+        self.uyarilan = set()
 
     def _init_settings(self):
         if not os.path.exists(self.settings_file):
@@ -796,6 +806,121 @@ class LogSistemi(commands.Cog):
             embed.add_field(name="Emoji", value=f"`{before.emoji or 'Yok'}` → `{after.emoji or 'Yok'}`", inline=False)
         embed.set_footer(text=f"ID: {after.id} • {after.guild.name}")
         await self._send_log(after.guild.id, "sticker", embed)
+
+    # ---- Anomali Tespiti ----
+    ANOMALI_ESIK = 5
+    ANOMALI_ARALIK = 12
+
+    async def _anomali_role_ping(self, guild):
+        for rol in guild.roles:
+            if rol.permissions.administrator and rol.name != "@everyone":
+                return rol.mention
+        return "@everyone"
+
+    async def _anomali_kontrol(self, takip, gid, now, tur, saldiran, guild):
+        takip[gid].append(now)
+        if len(takip[gid]) < self.ANOMALI_ESIK:
+            return
+        onceki = takip[gid][0]
+        if (now - onceki).total_seconds() > self.ANOMALI_ARALIK:
+            takip[gid].clear()
+            takip[gid].append(now)
+            return
+        if gid in self.uyarilan:
+            return
+        self.uyarilan.add(gid)
+        sayi = len(takip[gid])
+        rol_ping = await self._anomali_role_ping(guild)
+        embed = discord.Embed(title=f"🚨 Anomali Tespit Edildi!", color=discord.Color.red(), timestamp=datetime.now())
+        embed.add_field(name="Olay", value=tur, inline=True)
+        embed.add_field(name="Sayı", value=f"{sayi} kez / {self.ANOMALI_ARALIK} saniye", inline=True)
+        embed.add_field(name="Şüpheli", value=f"{saldiran.mention if saldiran else 'Bilinmiyor'} ({saldiran.id if saldiran else '?'})", inline=False)
+        embed.set_footer(text=guild.name)
+        await self._send_log(guild.id, "anomaly", embed)
+        try:
+            kanal_id = self._get_log_channel(guild.id, "anomaly") or self._get_log_channel(guild.id, "all")
+            if kanal_id:
+                kanal = guild.get_channel(int(kanal_id))
+                if kanal and kanal.permissions_for(guild.me).send_messages:
+                    await kanal.send(f"{rol_ping} • **{tur}** tespit edildi! ({sayi} kez / {self.ANOMALI_ARALIK}sn)")
+        except:
+            pass
+        import asyncio
+        async def _temizle():
+            await asyncio.sleep(60)
+            self.uyarilan.discard(gid)
+        asyncio.ensure_future(_temizle())
+
+    @commands.Cog.listener(name="on_member_ban")
+    async def on_member_ban_anomali(self, guild: discord.Guild, user: discord.User):
+        if not guild.me.guild_permissions.view_audit_log:
+            return
+        try:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
+                if entry.user and entry.user.id != self.bot.user.id:
+                    await self._anomali_kontrol(self.ban_takip, guild.id, datetime.now(), "Toplu Ban", entry.user, guild)
+                break
+        except:
+            pass
+
+    @commands.Cog.listener(name="on_member_remove")
+    async def on_member_remove_anomali(self, member: discord.Member):
+        if member.bot or not member.guild.me.guild_permissions.view_audit_log:
+            return
+        guild = member.guild
+        try:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
+                if entry.target.id == member.id and entry.user and entry.user.id != self.bot.user.id:
+                    await self._anomali_kontrol(self.kick_takip, guild.id, datetime.now(), "Toplu Kick", entry.user, guild)
+                break
+        except:
+            pass
+
+    @commands.Cog.listener(name="on_member_join")
+    async def on_member_join_anomali(self, member: discord.Member):
+        if member.bot:
+            return
+        guild = member.guild
+        await self._anomali_kontrol(self.join_takip, guild.id, datetime.now(), "Yoğun Üye Katılımı", member, guild)
+
+    @commands.Cog.listener(name="on_guild_channel_delete")
+    async def on_guild_channel_delete_anomali(self, channel: discord.abc.GuildChannel):
+        guild = channel.guild
+        if not guild.me.guild_permissions.view_audit_log:
+            return
+        try:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_delete):
+                if entry.user and entry.user.id != self.bot.user.id:
+                    await self._anomali_kontrol(self.kanal_takip, guild.id, datetime.now(), "Toplu Kanal Silme", entry.user, guild)
+                break
+        except:
+            pass
+
+    @commands.Cog.listener(name="on_guild_role_delete")
+    async def on_guild_role_delete_anomali(self, role: discord.Role):
+        guild = role.guild
+        if not guild.me.guild_permissions.view_audit_log:
+            return
+        try:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.role_delete):
+                if entry.user and entry.user.id != self.bot.user.id:
+                    await self._anomali_kontrol(self.rol_takip, guild.id, datetime.now(), "Toplu Rol Silme", entry.user, guild)
+                break
+        except:
+            pass
+
+    @commands.Cog.listener(name="on_webhooks_update")
+    async def on_webhooks_update_anomali(self, channel: discord.abc.GuildChannel):
+        guild = channel.guild
+        if not guild.me.guild_permissions.view_audit_log:
+            return
+        try:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.webhook_create):
+                if entry.user and entry.user.id != self.bot.user.id:
+                    await self._anomali_kontrol(self.webhook_takip, guild.id, datetime.now(), "Toplu Webhook Oluşturma", entry.user, guild)
+                break
+        except:
+            pass
 
 async def setup(bot):
     await bot.add_cog(LogSistemi(bot))
