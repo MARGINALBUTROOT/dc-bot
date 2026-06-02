@@ -16,7 +16,9 @@ BOT_STATUS_FILE = "bot_status.json"
 GUILDS_FILE = "guilds.json"
 WEB_COMMANDS_FILE = "web_commands.json"
 
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "rootx123")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+if not ADMIN_PASSWORD:
+    raise RuntimeError("ADMIN_PASSWORD environment variable is not set!")
 
 def get_modlogs():
     return _read_json(MODLOGS_FILE, {})
@@ -195,7 +197,7 @@ def api_logs_user(name):
 def write_web_command(data):
     komutlar = _read_json(WEB_COMMANDS_FILE, [])
     komutlar.append(data)
-    write_json(WEB_COMMANDS_FILE, komutlar)
+    _write_json(WEB_COMMANDS_FILE, komutlar)
 
 def get_warns():
     return _read_json("warns_storage.json", {})

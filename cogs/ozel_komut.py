@@ -110,12 +110,22 @@ class OzelKomutView(discord.ui.View):
 class OzelKomut(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._komut_cache = None
+        self._cache_time = 0
+
+    def _get_komutlar(self):
+        import time
+        now = time.time()
+        if self._komut_cache is None or now - self._cache_time > 60:
+            self._komut_cache = _load()
+            self._cache_time = now
+        return self._komut_cache
 
     @app_commands.command(name="ozel-komut", description="Özel komutları yönet (ekle/sil/liste)")
     @app_commands.guild_only()
     async def ozel_komut(self, interaction: discord.Interaction):
         embed = discord.Embed(title="Özel Komut Yönetimi", description="Sunucunuza özel `!` ile başlayan komutlar ekleyin.", color=discord.Color.blue())
-        data = _load()
+        data = self._get_komutlar()
         gid = str(interaction.guild_id)
         komutlar = data.get(gid, {})
         embed.add_field(name="Mevcut Komut Sayısı", value=str(len(komutlar)), inline=True)
@@ -129,7 +139,7 @@ class OzelKomut(commands.Cog):
             return
         if not message.content.startswith("!"):
             return
-        data = _load()
+        data = self._get_komutlar()
         gid = str(message.guild.id)
         komutlar = data.get(gid, {})
         if not komutlar:

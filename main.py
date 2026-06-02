@@ -22,7 +22,6 @@ bot = commands.Bot(
     command_prefix="!",
     intents=intents,
     help_command=None,
-    max_messages=None,
     chunk_guilds_at_startup=True
 )
 

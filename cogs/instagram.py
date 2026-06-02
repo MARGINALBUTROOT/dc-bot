@@ -4,6 +4,7 @@ from discord import app_commands
 import urllib.request
 import json
 import os
+import asyncio
 
 class Instagram(commands.Cog):
     def __init__(self, bot):
@@ -29,7 +30,10 @@ class Instagram(commands.Cog):
         with open(self.settings_file, "w") as f:
             json.dump(data, f, indent=4)
 
-    def _fetch_son_paylasim(self, kullanici):
+    async def _fetch_son_paylasim(self, kullanici):
+        return await asyncio.to_thread(self._fetch_son_paylasim_sync, kullanici)
+
+    def _fetch_son_paylasim_sync(self, kullanici):
         url = "https://www.instagram.com/" + kullanici + "/embed/"
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -164,7 +168,7 @@ class Instagram(commands.Cog):
         gonderildi = 0
         for h in hesaplar:
             try:
-                son = self._fetch_son_paylasim(h["kullanici"])
+                son = await self._fetch_son_paylasim(h["kullanici"])
                 if son:
                     kanal_obj = interaction.guild.get_channel(int(h["kanal_id"]))
                     if kanal_obj:
@@ -224,7 +228,7 @@ class Instagram(commands.Cog):
                 continue
             for h in settings.get("hesaplar", []):
                 try:
-                    son = self._fetch_son_paylasim(h["kullanici"])
+                    son = await self._fetch_son_paylasim(h["kullanici"])
                     if not son:
                         continue
                     post_id = son["shortcode"]

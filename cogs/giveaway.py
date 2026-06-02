@@ -10,6 +10,60 @@ class Giveaway(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active = {}
+        self.file = "giveaways.json"
+        self._load_active()
+        self.bot.loop.create_task(self._checker())
+
+    def _save_active(self):
+        with open(self.file, "w") as f:
+            json.dump({str(k): v for k, v in self.active.items()}, f, indent=4)
+
+    def _load_active(self):
+        if not os.path.exists(self.file):
+            return
+        try:
+            with open(self.file, "r") as f:
+                raw = json.load(f)
+            self.active = {int(k): v for k, v in raw.items()}
+        except:
+            self.active = {}
+
+    async def _checker(self):
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(30)
+            now = discord.utils.utcnow().timestamp()
+            bitenler = [mid for mid, g in self.active.items() if now >= g["bitis"]]
+            for mid in bitenler:
+                g_data = self.active[mid]
+                kanal = self.bot.get_channel(g_data.get("kanal_id"))
+                if not kanal:
+                    del self.active[mid]
+                    continue
+                try:
+                    mesaj = await kanal.fetch_message(mid)
+                except:
+                    del self.active[mid]
+                    continue
+                kazanan_sayisi = g_data.get("kazanan", 1)
+                odul = g_data.get("odul", "Ödül")
+                katilimcilar = []
+                for reaction in mesaj.reactions:
+                    if reaction.emoji == "🎉":
+                        async for user in reaction.users():
+                            if not user.bot:
+                                katilimcilar.append(user)
+                if not katilimcilar:
+                    embed = discord.Embed(title=f"🎉 {odul}", description="Çekilişe katılan olmadı!", color=discord.Color.red())
+                    await mesaj.edit(embed=embed)
+                else:
+                    kazananlar = random.sample(katilimcilar, min(kazanan_sayisi, len(katilimcilar)))
+                    kazanan_mentionlari = ", ".join([k.mention for k in kazananlar])
+                    embed = discord.Embed(title=f"🎉 {odul}", description=f"**Çekiliş bitti!**\n\nKazanan: {kazanan_mentionlari}", color=discord.Color.green())
+                    await mesaj.edit(embed=embed)
+                    await kanal.send(f"🎉 Tebrikler {kazanan_mentionlari}! **{odul}** kazandınız!")
+                del self.active[mid]
+                self._save_active()
 
     @app_commands.command(name="giveaway", description="Cekilis baslat")
     @app_commands.describe(
@@ -47,45 +101,9 @@ class Giveaway(commands.Cog):
         await mesaj.add_reaction("🎉")
 
         self.active[mesaj.id] = {"kazanan": kazanan, "bitis": bitis, "odul": odul, "guild_id": interaction.guild.id, "kanal_id": hedef_kanal.id, "baslatan": interaction.user.id}
+        self._save_active()
 
         await interaction.response.send_message(f"Cekilis {hedef_kanal.mention} kanalinda baslatildi!", ephemeral=True)
-
-        await asyncio.sleep(sure_saniye)
-
-        if mesaj.id not in self.active:
-            return
-
-        try:
-            mesaj = await hedef_kanal.fetch_message(mesaj.id)
-        except:
-            del self.active[mesaj.id]
-            return
-
-        katilimcilar = []
-        for reaction in mesaj.reactions:
-            if reaction.emoji == "🎉":
-                async for user in reaction.users():
-                    if not user.bot:
-                        katilimcilar.append(user)
-
-        if len(katilimcilar) == 0:
-            embed = discord.Embed(title=f"🎉 {odul}", description="Cekilise katilan olmadi!", color=discord.Color.red())
-            await mesaj.edit(embed=embed)
-            del self.active[mesaj.id]
-            return
-
-        kazananlar = random.sample(katilimcilar, min(kazanan, len(katilimcilar)))
-        kazanan_mentionlari = ", ".join([k.mention for k in kazananlar])
-
-        embed = discord.Embed(
-            title=f"🎉 {odul}",
-            description=f"**Cekilis bitti!**\n\nKazanan: {kazanan_mentionlari}",
-            color=discord.Color.green()
-        )
-        await mesaj.edit(embed=embed)
-        await hedef_kanal.send(f"🎉 Tebrikler {kazanan_mentionlari}! **{odul}** kazandiniz!")
-
-        del self.active[mesaj.id]
 
     def _parse_sure(self, sure: str) -> int:
         sure = sure.lower().strip()

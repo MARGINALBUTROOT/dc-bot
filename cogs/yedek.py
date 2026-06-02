@@ -195,9 +195,13 @@ def _auto_yedek_al(guild_id, guild_name="Bilinmiyor"):
 class Yedek(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._ilk_hazir = False
 
     @commands.Cog.listener()
     async def on_ready(self):
+        if self._ilk_hazir:
+            return
+        self._ilk_hazir = True
         print("[YEDEK] Bot basladi, tum sunucular yedekleniyor...")
         say = 0
         for guild in self.bot.guilds:

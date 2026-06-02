@@ -82,7 +82,7 @@ class Bilgi(commands.Cog):
                 user = await interaction.guild.fetch_member(target_user.id)
 
             embed = discord.Embed(
-                title=f"{user.name}#{user.discriminator}",
+                title=f"{user.display_name} ({user.name})",
                 color=user.color if user.color != discord.Color.default() else discord.Color.blue()
             )
 
