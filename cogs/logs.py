@@ -18,13 +18,18 @@ LOG_TYPES = {
     "event": "Etkinlik",
     "pins": "Sabit Mesaj",
     "stage": "Ses Sahnesi",
-    "automod": "AutoMod"
+    "automod": "AutoMod",
+    "audit": "Denetim Kaydı",
+    "user": "Kullanıcı Güncelleme",
+    "sticker": "Sticker/Soundboard",
+    "integration": "Entegrasyon"
 }
 
 LOG_EMOJIS = {
     "all": "📋", "message_delete": "🗑️", "message_edit": "✏️", "voice": "🔊",
     "member": "👤", "channel": "📁", "role": "🎖️", "moderation": "🛡️",
-    "invite": "📨", "event": "📅", "pins": "📌", "stage": "🎤", "automod": "🤖"
+    "invite": "📨", "event": "📅", "pins": "📌", "stage": "🎤", "automod": "🤖",
+    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗"
 }
 
 class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
@@ -652,14 +657,145 @@ class LogSistemi(commands.Cog):
     @commands.Cog.listener()
     async def on_automod_action(self, execution: discord.AutoModAction):
         embed = discord.Embed(title="AutoMod İşlemi", color=discord.Color.orange(), timestamp=datetime.now())
-        embed.add_field(name="Kural", value=execution.rule.name if execution.rule else "Bilinmiyor", inline=True)
-        embed.add_field(name="Kullanıcı", value=execution.user.mention if execution.user else "Bilinmiyor", inline=True)
+        embed.add_field(name="Kural ID", value=execution.rule_id, inline=True)
+        embed.add_field(name="Kullanıcı", value=execution.member.mention if execution.member else f"<@{execution.user_id}>", inline=True)
         if execution.channel:
             embed.add_field(name="Kanal", value=execution.channel.mention, inline=True)
-        embed.add_field(name="İçerik", value=f"```{execution.content[:200] if execution.content else 'Yok'}```", inline=False)
+        embed.add_field(name="İçerik", value=f"```{(execution.matched_content or execution.content or 'Yok')[:200]}```", inline=False)
         embed.add_field(name="Aksiyon", value=str(execution.action.type).split(".")[-1] if execution.action else "Bilinmiyor", inline=True)
         embed.set_footer(text=f"ID: {execution.guild.id} • {execution.guild.name}")
         await self._send_log(execution.guild.id, "automod", embed)
+
+    @commands.Cog.listener()
+    async def on_user_update(self, before: discord.User, after: discord.User):
+        if before.bot:
+            return
+        embed = None
+        if before.global_name != after.global_name:
+            embed = discord.Embed(title="Kullanıcı Adı Değişti (Global)", color=discord.Color.blue(), timestamp=datetime.now())
+            embed.set_author(name=after.display_name, icon_url=after.avatar.url if after.avatar else None)
+            embed.add_field(name="Önce", value=before.global_name or before.name, inline=True)
+            embed.add_field(name="Sonra", value=after.global_name or after.name, inline=True)
+            embed.set_footer(text=f"ID: {after.id}")
+        elif before.avatar != after.avatar:
+            embed = discord.Embed(title="Profil Resmi Değişti (Global)", color=discord.Color.blue(), timestamp=datetime.now())
+            embed.set_author(name=after.display_name, icon_url=after.avatar.url if after.avatar else None)
+            embed.add_field(name="Kullanıcı", value=after.mention, inline=True)
+            if after.avatar:
+                embed.set_image(url=after.avatar.url)
+            embed.set_footer(text=f"ID: {after.id}")
+        if embed:
+            for guild in self.bot.guilds:
+                if guild.get_member(after.id):
+                    await self._send_log(guild.id, "user", embed)
+
+    @commands.Cog.listener()
+    async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry):
+        try:
+            if not entry.guild:
+                return
+            embed = discord.Embed(title="Denetim Kaydı", color=discord.Color.gold(), timestamp=datetime.now())
+            embed.add_field(name="İşlem", value=str(entry.action).split(".")[-1] if entry.action else "Bilinmiyor", inline=True)
+            embed.add_field(name="Hedef", value=str(entry.target) if entry.target else "Bilinmiyor", inline=True)
+            if entry.user:
+                embed.add_field(name="Yetkili", value=entry.user.mention, inline=True)
+            if entry.reason:
+                embed.add_field(name="Sebep", value=entry.reason[:200], inline=False)
+            embed.set_footer(text=f"ID: {entry.id} • {entry.guild.name}")
+            await self._send_log(entry.guild.id, "audit", embed)
+        except:
+            pass
+
+    @commands.Cog.listener()
+    async def on_guild_stickers_update(self, guild: discord.Guild, before, after):
+        if len(before) < len(after):
+            eklenen = [s for s in after if s not in before]
+            for s in eklenen:
+                embed = discord.Embed(title="Sticker Eklendi", description=s.name, color=discord.Color.green(), timestamp=datetime.now())
+                if s.emoji:
+                    embed.add_field(name="Emoji", value=s.emoji, inline=True)
+                if s.description:
+                    embed.add_field(name="Açıklama", value=s.description[:100], inline=True)
+                embed.set_footer(text=f"ID: {s.id} • {guild.name}")
+                await self._send_log(guild.id, "sticker", embed)
+        elif len(before) > len(after):
+            silinen = [s for s in before if s not in after]
+            for s in silinen:
+                embed = discord.Embed(title="Sticker Silindi", description=s.name, color=discord.Color.red(), timestamp=datetime.now())
+                embed.set_footer(text=f"ID: {s.id} • {guild.name}")
+                await self._send_log(guild.id, "sticker", embed)
+        else:
+            for old_s in before:
+                for new_s in after:
+                    if old_s.id == new_s.id and (old_s.name != new_s.name or old_s.description != new_s.description):
+                        embed = discord.Embed(title="Sticker Düzenlendi", color=discord.Color.gold(), timestamp=datetime.now())
+                        if old_s.name != new_s.name:
+                            embed.add_field(name="İsim", value=f"`{old_s.name}` → `{new_s.name}`", inline=False)
+                        if old_s.description != new_s.description:
+                            embed.add_field(name="Açıklama", value=f"`{old_s.description or 'Yok'}` → `{new_s.description or 'Yok'}`", inline=False)
+                        embed.set_footer(text=f"ID: {new_s.id} • {guild.name}")
+                        await self._send_log(guild.id, "sticker", embed)
+                        break
+
+    @commands.Cog.listener()
+    async def on_integration_create(self, integration: discord.Integration):
+        embed = discord.Embed(title="Entegrasyon Eklendi", description=integration.name, color=discord.Color.green(), timestamp=datetime.now())
+        embed.add_field(name="Tür", value=integration.type, inline=True)
+        if integration.user:
+            embed.set_author(name=integration.user.display_name, icon_url=integration.user.avatar.url if integration.user.avatar else None)
+        embed.set_footer(text=f"ID: {integration.id} • {integration.guild.name}")
+        await self._send_log(integration.guild.id, "integration", embed)
+
+    @commands.Cog.listener()
+    async def on_integration_delete(self, integration: discord.Integration):
+        embed = discord.Embed(title="Entegrasyon Silindi", description=integration.name, color=discord.Color.red(), timestamp=datetime.now())
+        embed.add_field(name="Tür", value=integration.type, inline=True)
+        embed.set_footer(text=f"ID: {integration.id} • {integration.guild.name}")
+        await self._send_log(integration.guild.id, "integration", embed)
+
+    @commands.Cog.listener()
+    async def on_scheduled_event_user_add(self, event: discord.ScheduledEvent, user: discord.User):
+        embed = discord.Embed(title="Etkinliğe Katıldı", color=discord.Color.green(), timestamp=datetime.now())
+        embed.set_author(name=user.display_name, icon_url=user.avatar.url if user.avatar else None)
+        embed.add_field(name="Etkinlik", value=event.name, inline=True)
+        embed.add_field(name="Kullanıcı", value=user.mention, inline=True)
+        embed.set_footer(text=f"ID: {event.id} • {event.guild.name}")
+        await self._send_log(event.guild.id, "event", embed)
+
+    @commands.Cog.listener()
+    async def on_scheduled_event_user_remove(self, event: discord.ScheduledEvent, user: discord.User):
+        embed = discord.Embed(title="Etkinlikten Ayrıldı", color=discord.Color.red(), timestamp=datetime.now())
+        embed.set_author(name=user.display_name, icon_url=user.avatar.url if user.avatar else None)
+        embed.add_field(name="Etkinlik", value=event.name, inline=True)
+        embed.add_field(name="Kullanıcı", value=user.mention, inline=True)
+        embed.set_footer(text=f"ID: {event.id} • {event.guild.name}")
+        await self._send_log(event.guild.id, "event", embed)
+
+    @commands.Cog.listener()
+    async def on_soundboard_sound_create(self, sound: discord.SoundboardSound):
+        embed = discord.Embed(title="Soundboard Ses Eklendi", description=sound.name, color=discord.Color.green(), timestamp=datetime.now())
+        if sound.emoji:
+            embed.add_field(name="Emoji", value=sound.emoji, inline=True)
+        embed.set_footer(text=f"ID: {sound.id} • {sound.guild.name}")
+        await self._send_log(sound.guild.id, "sticker", embed)
+
+    @commands.Cog.listener()
+    async def on_soundboard_sound_delete(self, sound: discord.SoundboardSound):
+        embed = discord.Embed(title="Soundboard Ses Silindi", description=sound.name, color=discord.Color.red(), timestamp=datetime.now())
+        embed.set_footer(text=f"ID: {sound.id} • {sound.guild.name}")
+        await self._send_log(sound.guild.id, "sticker", embed)
+
+    @commands.Cog.listener()
+    async def on_soundboard_sound_update(self, before: discord.SoundboardSound, after: discord.SoundboardSound):
+        if before.name == after.name and before.emoji == after.emoji:
+            return
+        embed = discord.Embed(title="Soundboard Ses Düzenlendi", color=discord.Color.gold(), timestamp=datetime.now())
+        if before.name != after.name:
+            embed.add_field(name="İsim", value=f"`{before.name}` → `{after.name}`", inline=False)
+        if before.emoji != after.emoji:
+            embed.add_field(name="Emoji", value=f"`{before.emoji or 'Yok'}` → `{after.emoji or 'Yok'}`", inline=False)
+        embed.set_footer(text=f"ID: {after.id} • {after.guild.name}")
+        await self._send_log(after.guild.id, "sticker", embed)
 
 async def setup(bot):
     await bot.add_cog(LogSistemi(bot))
