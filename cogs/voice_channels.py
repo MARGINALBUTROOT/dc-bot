@@ -161,6 +161,7 @@ class VoiceChannels(commands.Cog):
     @app_commands.command(name="sesoda", description="Ses odaları sistemini kur")
     @app_commands.describe(
         kanalismi="Giriş kanalının adı (örn: '➕ Oda Oluştur')",
+        kategori_olustur="Kategori oluşturulsun mu? (Evet = önerilir)",
         izin="True = özel kanal, False = herkese açık"
     )
     @app_commands.guild_only()
@@ -169,19 +170,25 @@ class VoiceChannels(commands.Cog):
         self,
         interaction: discord.Interaction,
         kanalismi: str = "➕ Oda Oluştur",
+        kategori_olustur: bool = True,
         izin: bool = True
     ):
         await interaction.response.defer()
 
-        kategori = discord.utils.get(interaction.guild.categories, name="Ses Odaları")
-        if not kategori:
-            try:
-                kategori = await interaction.guild.create_category("Ses Odaları")
-            except discord.Forbidden:
-                await interaction.followup.send("Kategori oluşturulamadı! Yetkileri kontrol et.", ephemeral=True)
-                return
+        kategori = None
+        if kategori_olustur:
+            kategori = discord.utils.get(interaction.guild.categories, name="Ses Odaları")
+            if not kategori:
+                try:
+                    kategori = await interaction.guild.create_category("Ses Odaları")
+                except discord.Forbidden:
+                    await interaction.followup.send("Kategori oluşturulamadı! Yetkileri kontrol et.", ephemeral=True)
+                    return
 
-        varolan = discord.utils.get(kategori.voice_channels, name=kanalismi)
+        if kategori:
+            varolan = discord.utils.get(kategori.voice_channels, name=kanalismi)
+        else:
+            varolan = discord.utils.get(interaction.guild.voice_channels, name=kanalismi)
         if varolan:
             await interaction.followup.send(f"`{kanalismi}` kanalı zaten mevcut!", ephemeral=True)
             return
@@ -193,13 +200,13 @@ class VoiceChannels(commands.Cog):
 
             self._save_settings(interaction.guild.id, {
                 "giris_kanal": str(giris_kanal.id),
-                "kategori": str(kategori.id),
+                "kategori": str(kategori.id) if kategori else "",
                 "izin": izin
             })
 
             embed = discord.Embed(
                 title="✅ Ses Odaları Kuruldu",
-                description=f"**Giriş Kanalı:** {giris_kanal.mention}\n**Kategori:** {kategori.name}\n**İzin Yönetimi:** {'Açık' if izin else 'Kapalı'}",
+                description=f"**Giriş Kanalı:** {giris_kanal.mention}\n{'**Kategori:** ' + kategori.name if kategori else '**Kategori:** Yok'}\n**İzin Yönetimi:** {'Açık' if izin else 'Kapalı'}",
                 color=discord.Color.green()
             )
             embed.add_field(name="📖 Nasıl Kullanılır?", value=f"1. `{kanalismi}` kanalına katıl\n2. Senin adına özel oda açılır\n3. Ses kanalının sohbetine panel gelir\n4. Odadan çıkınca otomatik silinir", inline=False)
@@ -222,18 +229,22 @@ class VoiceChannels(commands.Cog):
         kategori_id = settings.get("kategori")
         izin_aktif = settings.get("izin", True)
 
-        if not giris_kanal_id or not kategori_id:
+        if not giris_kanal_id:
             return
 
         try:
             giris_kanal_id = int(giris_kanal_id)
-            kategori_id = int(kategori_id)
         except:
             return
 
-        kategori = member.guild.get_channel(kategori_id)
-        if not kategori or not isinstance(kategori, discord.CategoryChannel):
-            return
+        kategori = None
+        if kategori_id:
+            try:
+                kategori = member.guild.get_channel(int(kategori_id))
+                if kategori and not isinstance(kategori, discord.CategoryChannel):
+                    kategori = None
+            except:
+                kategori = None
 
         if before.channel and before.channel.id in self.user_channels.values():
             oda = before.channel
@@ -267,9 +278,14 @@ class VoiceChannels(commands.Cog):
 
             oda_adi = member.display_name
             sayi = 1
-            while any(c.name == oda_adi for c in kategori.channels):
-                sayi += 1
-                oda_adi = f"{member.display_name} {sayi}"
+            if kategori:
+                while any(c.name == oda_adi for c in kategori.channels):
+                    sayi += 1
+                    oda_adi = f"{member.display_name} {sayi}"
+            else:
+                while any(c.name == oda_adi for c in member.guild.voice_channels):
+                    sayi += 1
+                    oda_adi = f"{member.display_name} {sayi}"
 
             try:
                 yeni_oda = await member.guild.create_voice_channel(
