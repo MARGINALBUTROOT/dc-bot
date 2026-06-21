@@ -22,22 +22,21 @@ class EsikModal(discord.ui.Modal, title="Ban Eşiği Ayarla"):
         except ValueError:
             await interaction.response.send_message("Geçerli bir sayı girin!", ephemeral=True)
             return
-        s = self.cog._get_guild_settings(self.guild_id)
-        s["esik"] = sayi
-        self.cog._save_guild_settings(self.guild_id, s)
-        await self._refresh(interaction)
+        try:
+            s = self.cog._get_guild_settings(self.guild_id)
+            s["esik"] = sayi
+            self.cog._save_guild_settings(self.guild_id, s)
+            await self._refresh(interaction)
+        except Exception as e:
+            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
     async def _refresh(self, interaction):
-        s = self.cog._get_guild_settings(self.guild_id)
-        durum = "✅ Aktif" if s["aktif"] else "❌ Devre Dışı"
-        embed = discord.Embed(title="Antibot Koruması", description="Sunucuya katılan botları izler, spam durumunda otomatik banlar.", color=discord.Color.blue())
-        embed.add_field(name="Durum", value=durum, inline=True)
-        embed.add_field(name="Ban Eşiği", value=f"{s['esik']} mesaj", inline=True)
-        kanal = self.cog._get_kanal(s)
-        embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
-        guvenli_sayisi = len(s.get("guvenli_botlar", []))
-        embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        await interaction.response.edit_message(embed=embed)
+        try:
+            s = self.cog._get_guild_settings(self.guild_id)
+            embed = await self.cog._refresh_embed(s, interaction.guild)
+            await interaction.response.edit_message(embed=embed)
+        except Exception as e:
+            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
 class KanalModal(discord.ui.Modal, title="Bildirim Kanalı Ayarla"):
     def __init__(self, cog, guild_id):
@@ -64,22 +63,21 @@ class KanalModal(discord.ui.Modal, title="Bildirim Kanalı Ayarla"):
         if not kanal:
             await interaction.response.send_message("Kanal bulunamadı!", ephemeral=True)
             return
-        s = self.cog._get_guild_settings(self.guild_id)
-        s["kanal_id"] = str(kanal.id)
-        self.cog._save_guild_settings(self.guild_id, s)
-        await self._refresh(interaction)
+        try:
+            s = self.cog._get_guild_settings(self.guild_id)
+            s["kanal_id"] = str(kanal.id)
+            self.cog._save_guild_settings(self.guild_id, s)
+            await self._refresh(interaction)
+        except Exception as e:
+            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
     async def _refresh(self, interaction):
-        s = self.cog._get_guild_settings(self.guild_id)
-        durum = "✅ Aktif" if s["aktif"] else "❌ Devre Dışı"
-        embed = discord.Embed(title="Antibot Koruması", color=discord.Color.blue())
-        embed.add_field(name="Durum", value=durum, inline=True)
-        embed.add_field(name="Ban Eşiği", value=f"{s['esik']} mesaj", inline=True)
-        kanal = self.cog._get_kanal(s)
-        embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
-        guvenli_sayisi = len(s.get("guvenli_botlar", []))
-        embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        await interaction.response.edit_message(embed=embed)
+        try:
+            s = self.cog._get_guild_settings(self.guild_id)
+            embed = await self.cog._refresh_embed(s, interaction.guild)
+            await interaction.response.edit_message(embed=embed)
+        except Exception as e:
+            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
 class GuvenliEkleModal(discord.ui.Modal, title="Güvenli Bot Ekle"):
     def __init__(self, cog, guild_id):
@@ -90,17 +88,20 @@ class GuvenliEkleModal(discord.ui.Modal, title="Güvenli Bot Ekle"):
         self.add_item(self.bot_id)
 
     async def on_submit(self, interaction: discord.Interaction):
-        s = self.cog._get_guild_settings(self.guild_id)
-        bid = self.bot_id.value.strip()
-        if bid in s.get("guvenli_botlar", []):
-            await interaction.response.send_message("Bu bot zaten güvenli listesinde.", ephemeral=True)
-            return
-        if "guvenli_botlar" not in s:
-            s["guvenli_botlar"] = []
-        s["guvenli_botlar"].append(bid)
-        self.cog._save_guild_settings(self.guild_id, s)
-        embed = discord.Embed(title="Güvenli Bot Eklendi", description=f"Bot `{bid}` güvenli listesine eklendi.", color=discord.Color.green())
-        await interaction.response.edit_message(embed=embed)
+        try:
+            s = self.cog._get_guild_settings(self.guild_id)
+            bid = self.bot_id.value.strip()
+            if bid in s.get("guvenli_botlar", []):
+                await interaction.response.send_message("Bu bot zaten güvenli listesinde.", ephemeral=True)
+                return
+            if "guvenli_botlar" not in s:
+                s["guvenli_botlar"] = []
+            s["guvenli_botlar"].append(bid)
+            self.cog._save_guild_settings(self.guild_id, s)
+            embed = discord.Embed(title="Güvenli Bot Eklendi", description=f"Bot `{bid}` güvenli listesine eklendi.", color=discord.Color.green())
+            await interaction.response.edit_message(embed=embed)
+        except Exception as e:
+            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
 class AntibotView(discord.ui.View):
     def __init__(self, cog, guild_id):
@@ -209,10 +210,25 @@ class Antibot(commands.Cog):
     def _get_kanal(self, settings):
         kanal_id = settings.get("kanal_id")
         if kanal_id:
-            kanal = self.bot.get_channel(int(kanal_id))
-            if kanal:
-                return kanal
+            try:
+                kanal = self.bot.get_channel(int(kanal_id))
+                if kanal:
+                    return kanal
+            except (ValueError, TypeError):
+                pass
         return None
+
+    async def _refresh_embed(self, s, guild):
+        durum = "✅ Aktif" if s["aktif"] else "❌ Devre Dışı"
+        embed = discord.Embed(title="Antibot Koruması", description="Sunucuya katılan botları izler, spam durumunda otomatik banlar.", color=discord.Color.blue() if s["aktif"] else discord.Color.red())
+        embed.add_field(name="Durum", value=durum, inline=True)
+        embed.add_field(name="Ban Eşiği", value=f"{s['esik']} mesaj", inline=True)
+        kanal = self._get_kanal(s)
+        embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
+        guvenli_sayisi = len(s.get("guvenli_botlar", []))
+        embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
+        embed.set_footer(text="Butonları kullanarak ayarları değiştirebilirsin")
+        return embed
 
     @app_commands.command(name="antibot", description="Bot koruma sistemini yönet (butonlu menü)")
     @app_commands.guild_only()
