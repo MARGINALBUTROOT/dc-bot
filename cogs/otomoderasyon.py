@@ -89,6 +89,7 @@ class Otomoderasyon(commands.Cog):
                 json.dump({}, f)
 
     def _get_guild_settings(self, guild_id: int):
+        defaults = {"link_filter": False, "spam_filter": False, "spam_mute_duration": 5}
         try:
             with open(self.settings_file, "r") as f:
                 settings = json.load(f)
@@ -96,7 +97,10 @@ class Otomoderasyon(commands.Cog):
             settings = {}
         gid = str(guild_id)
         if gid not in settings:
-            settings[gid] = {"link_filter": False, "spam_filter": False, "spam_mute_duration": 5}
+            settings[gid] = defaults
+        else:
+            for k, v in defaults.items():
+                settings[gid].setdefault(k, v)
         return settings[gid]
 
     def _save_guild_settings(self, guild_id: int, settings: dict):

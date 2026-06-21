@@ -97,12 +97,16 @@ class OtoRol(commands.Cog):
                 json.dump({}, f)
 
     def _get_settings(self, guild_id):
+        defaults = {"rol": None}
         try:
             with open(self.settings_file, "r") as f:
                 data = json.load(f)
-            return data.get(str(guild_id), {})
+            gs = data.get(str(guild_id), {})
+            for k, v in defaults.items():
+                gs.setdefault(k, v)
+            return gs
         except:
-            return {}
+            return defaults
 
     def _save_settings(self, guild_id, settings):
         try:
