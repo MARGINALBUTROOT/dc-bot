@@ -175,7 +175,7 @@ class Moderasyon(commands.Cog):
                 warn_text += f"`#{w['id']}` | {w['reason'][:40]} | {w['puan']}p | <t:{w['timestamp']}:R>\n"
             embed.add_field(name="Son Uyarılar", value=warn_text[:1024], inline=False)
         embed.set_footer(text=f"ID: {uye.id}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="purge", description="Mesajları sil (filtreli)")
     @app_commands.describe(
@@ -237,6 +237,9 @@ class Moderasyon(commands.Cog):
     async def kanal_kilitle(self, interaction: discord.Interaction, sebep: str = "Sebep belirtilmedi", kanal: discord.TextChannel = None):
         await interaction.response.defer()
         hedef = kanal or interaction.channel
+        if not isinstance(hedef, discord.TextChannel):
+            await interaction.followup.send("Bu komut sadece metin kanallarında kullanılabilir!", ephemeral=True)
+            return
         try:
             await hedef.set_permissions(interaction.guild.default_role, send_messages=False)
             self._log_action(interaction.guild.id, "LOCK", interaction.user.name, f"#{hedef.name}", sebep)
@@ -255,6 +258,9 @@ class Moderasyon(commands.Cog):
     async def kanal_ac(self, interaction: discord.Interaction, kanal: discord.TextChannel = None):
         await interaction.response.defer()
         hedef = kanal or interaction.channel
+        if not isinstance(hedef, discord.TextChannel):
+            await interaction.followup.send("Bu komut sadece metin kanallarında kullanılabilir!", ephemeral=True)
+            return
         try:
             await hedef.set_permissions(interaction.guild.default_role, send_messages=True)
             self._log_action(interaction.guild.id, "UNLOCK", interaction.user.name, f"#{hedef.name}", "Kanal açıldı")

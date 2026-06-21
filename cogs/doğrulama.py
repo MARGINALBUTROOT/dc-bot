@@ -108,7 +108,7 @@ class DogrulamaModal(discord.ui.Modal, title="Doğrulama"):
 
             if kayit_kanal_id:
                 kanal = interaction.guild.get_channel(int(kayit_kanal_id))
-                if kanal:
+                if isinstance(kanal, discord.TextChannel):
                     await kanal.send(embed=embed)
         else:
             data["attempts"] += 1
@@ -269,8 +269,8 @@ class Dogrulama(commands.Cog):
                 await interaction.followup.send("Önce dogrulama kanali ayarla! (dogrulama_kanal parametresi)", ephemeral=True)
                 return
             kanal = interaction.guild.get_channel(int(dogrulama_kanal_id))
-            if not kanal:
-                await interaction.followup.send("Dogrulama kanali bulunamadi!", ephemeral=True)
+            if not isinstance(kanal, discord.TextChannel):
+                await interaction.followup.send("Doğrulama kanali bir metin kanali değil!", ephemeral=True)
                 return
 
             embed = discord.Embed(

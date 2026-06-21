@@ -88,7 +88,7 @@ class Karsilama(commands.Cog):
         if not kanal_id or not mesaj:
             return
         kanal = member.guild.get_channel(int(kanal_id))
-        if not kanal:
+        if not isinstance(kanal, discord.TextChannel):
             return
         mesaj = mesaj.replace("{user}", member.mention).replace("{server}", member.guild.name).replace("{sayi}", str(member.guild.member_count))
         try:
@@ -106,7 +106,7 @@ class Karsilama(commands.Cog):
         if not kanal_id or not mesaj:
             return
         kanal = member.guild.get_channel(int(kanal_id))
-        if not kanal:
+        if not isinstance(kanal, discord.TextChannel):
             return
         mesaj = mesaj.replace("{user}", member.mention).replace("{server}", member.guild.name)
         try:

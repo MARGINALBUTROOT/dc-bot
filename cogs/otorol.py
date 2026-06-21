@@ -83,7 +83,7 @@ class OtoRolModal(discord.ui.Modal, title="Oto-Rol Ayarla"):
         embed = discord.Embed(title="Oto-Rol Ayarları", color=discord.Color.green())
         embed.add_field(name="Rol", value=rol.mention, inline=False)
         embed.add_field(name="Durum", value="✅ Aktif", inline=False)
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
+        await interaction.response.edit_message(embed=embed)
 
 class OtoRol(commands.Cog):
     def __init__(self, bot):

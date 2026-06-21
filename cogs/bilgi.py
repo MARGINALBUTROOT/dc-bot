@@ -74,6 +74,7 @@ class Bilgi(commands.Cog):
     @app_commands.describe(kullanıcı="Bilgisi gösterilecek kullanıcı (opsiyonel)")
     @app_commands.guild_only()
     async def kullanıcıinfo(self, interaction: discord.Interaction, kullanıcı: discord.Member = None):
+        await interaction.response.defer()
         try:
             target_user = kullanıcı or interaction.user
             if target_user.id in [m.id for m in interaction.guild.members]:
@@ -140,13 +141,14 @@ class Bilgi(commands.Cog):
                 )
 
             embed.set_footer(text=f"İstenen: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
         except Exception as e:
-            await interaction.response.send_message(f"Hata: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"Hata: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="serverinfo", description="Sunucu bilgisini göster")
     @app_commands.guild_only()
     async def sunucuinfo(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         try:
             guild = interaction.guild
             embed = discord.Embed(title=guild.name, color=discord.Color.purple())
@@ -197,9 +199,9 @@ class Bilgi(commands.Cog):
             )
 
             embed.set_footer(text=f"İstenen: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
         except Exception as e:
-            await interaction.response.send_message(f"Hata: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"Hata: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="help", description="Tüm komutları kategorilere göre göster")
     async def yardim(self, interaction: discord.Interaction):

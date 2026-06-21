@@ -37,7 +37,7 @@ class EsikModal(discord.ui.Modal, title="Ban Eşiği Ayarla"):
         embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
         guvenli_sayisi = len(s.get("guvenli_botlar", []))
         embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
+        await interaction.response.edit_message(embed=embed)
 
 class KanalModal(discord.ui.Modal, title="Bildirim Kanalı Ayarla"):
     def __init__(self, cog, guild_id):
@@ -79,7 +79,7 @@ class KanalModal(discord.ui.Modal, title="Bildirim Kanalı Ayarla"):
         embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
         guvenli_sayisi = len(s.get("guvenli_botlar", []))
         embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
+        await interaction.response.edit_message(embed=embed)
 
 class GuvenliEkleModal(discord.ui.Modal, title="Güvenli Bot Ekle"):
     def __init__(self, cog, guild_id):
@@ -100,7 +100,7 @@ class GuvenliEkleModal(discord.ui.Modal, title="Güvenli Bot Ekle"):
         s["guvenli_botlar"].append(bid)
         self.cog._save_guild_settings(self.guild_id, s)
         embed = discord.Embed(title="Güvenli Bot Eklendi", description=f"Bot `{bid}` güvenli listesine eklendi.", color=discord.Color.green())
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
+        await interaction.response.edit_message(embed=embed)
 
 class AntibotView(discord.ui.View):
     def __init__(self, cog, guild_id):

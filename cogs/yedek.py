@@ -4,6 +4,7 @@ from discord import app_commands
 import json
 import os
 import shutil
+import asyncio
 from datetime import datetime
 
 BACKUP_DIR = "backups"
@@ -206,7 +207,7 @@ class Yedek(commands.Cog):
         say = 0
         for guild in self.bot.guilds:
             try:
-                _auto_yedek_al(guild.id, guild.name)
+                await asyncio.to_thread(_auto_yedek_al, guild.id, guild.name)
                 say += 1
             except Exception as e:
                 print(f"[YEDEK] {guild.name} yedeklenirken hata: {e}")
@@ -215,7 +216,7 @@ class Yedek(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         try:
-            dosya = _auto_yedek_al(guild.id, guild.name)
+            dosya = await asyncio.to_thread(_auto_yedek_al, guild.id, guild.name)
             print(f"[YEDEK] {guild.name} sunucusu yedeklendi: {dosya}")
         except Exception as e:
             print(f"[YEDEK] {guild.name} yedeklenirken hata: {e}")

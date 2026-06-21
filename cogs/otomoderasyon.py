@@ -31,7 +31,7 @@ class SpamSureModal(discord.ui.Modal, title="Spam Susturma Süresi"):
     async def _refresh(self, interaction):
         s = self.cog._get_guild_settings(self.guild_id)
         embed = self.cog._build_embed(s)
-        await interaction.response.edit_message(embed=embed, view=interaction.message.view if hasattr(interaction, 'message') else None)
+        await interaction.response.edit_message(embed=embed)
 
 class OtoKorumaView(discord.ui.View):
     def __init__(self, cog, guild_id):

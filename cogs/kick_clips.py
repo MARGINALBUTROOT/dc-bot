@@ -254,6 +254,7 @@ class KickClip(commands.Cog):
     @app_commands.command(name="testkick-clip", description="Kick kanalinin son clipini test et")
     @app_commands.describe(kick_kanal="Kick kanal adi (ornek: forsen)")
     @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
     async def testkick_clip(self, interaction: discord.Interaction, kick_kanal: str):
         await interaction.response.defer()
         kick_kanal = self._temizle(kick_kanal)
