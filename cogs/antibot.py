@@ -26,11 +26,11 @@ class EsikModal(discord.ui.Modal, title="Ban Eşiği Ayarla"):
             s = self.cog._get_guild_settings(self.guild_id)
             s["esik"] = sayi
             self.cog._save_guild_settings(self.guild_id, s)
-            await self._refresh(interaction)
+            await self._update_message(interaction)
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    async def _refresh(self, interaction):
+    async def _update_message(self, interaction):
         try:
             s = self.cog._get_guild_settings(self.guild_id)
             embed = await self.cog._refresh_embed(s, interaction.guild)
@@ -67,11 +67,11 @@ class KanalModal(discord.ui.Modal, title="Bildirim Kanalı Ayarla"):
             s = self.cog._get_guild_settings(self.guild_id)
             s["kanal_id"] = str(kanal.id)
             self.cog._save_guild_settings(self.guild_id, s)
-            await self._refresh(interaction)
+            await self._update_message(interaction)
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    async def _refresh(self, interaction):
+    async def _update_message(self, interaction):
         try:
             s = self.cog._get_guild_settings(self.guild_id)
             embed = await self.cog._refresh_embed(s, interaction.guild)
