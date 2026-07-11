@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import json
 import os
 
@@ -120,18 +119,6 @@ class OzelKomut(commands.Cog):
             self._komut_cache = _load()
             self._cache_time = now
         return self._komut_cache
-
-    @app_commands.command(name="ozel-komut", description="Özel komutları yönet (ekle/sil/liste)")
-    @app_commands.guild_only()
-    async def ozel_komut(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="Özel Komut Yönetimi", description="Sunucunuza özel `!` ile başlayan komutlar ekleyin.", color=discord.Color.blue())
-        data = self._get_komutlar()
-        gid = str(interaction.guild_id)
-        komutlar = data.get(gid, {})
-        embed.add_field(name="Mevcut Komut Sayısı", value=str(len(komutlar)), inline=True)
-        if komutlar:
-            embed.add_field(name="Örnekler", value="\n".join(f"`{k}`" for k in list(komutlar.keys())[:5]), inline=False)
-        await interaction.response.send_message(embed=embed, view=OzelKomutView(self, interaction.guild_id), ephemeral=False)
 
     @commands.Cog.listener()
     async def on_message(self, message):

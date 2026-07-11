@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import json
 import os
 import shutil
@@ -220,27 +219,6 @@ class Yedek(commands.Cog):
             print(f"[YEDEK] {guild.name} sunucusu yedeklendi: {dosya}")
         except Exception as e:
             print(f"[YEDEK] {guild.name} yedeklenirken hata: {e}")
-
-    @app_commands.command(name="yedek-yukle", description="Yedekten ayarları geri yükle (admin)")
-    @app_commands.guild_only()
-    async def yedek_yukle(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Bu komutu sadece yöneticiler kullanabilir!", ephemeral=True)
-            return
-        if not os.path.exists(BACKUP_DIR):
-            await interaction.response.send_message("Hiç yedek bulunamadı.", ephemeral=True)
-            return
-        dosyalar = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith(".json") and str(interaction.guild_id) in f], reverse=True)
-        if not dosyalar:
-            await interaction.response.send_message("Bu sunucuya ait yedek bulunamadı.", ephemeral=True)
-            return
-        yedekler = []
-        for d in dosyalar[:25]:
-            yol = os.path.join(BACKUP_DIR, d)
-            boyut = os.path.getsize(yol)
-            tarih = d.split("_")[-1].replace(".json", "").replace("_", " ")
-            yedekler.append({"label": tarih, "dosya": d, "tarih": f"{boyut/1024:.1f}KB"})
-        await interaction.response.send_message("Yüklenecek yedeği seçin:", view=YedekYukleView(self, interaction.guild_id, yedekler), ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Yedek(bot))

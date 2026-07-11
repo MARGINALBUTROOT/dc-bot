@@ -2,12 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
-import asyncio
-import os
 
 KATEGORILER = {
     "moderasyon": {"emoji": "🛡️", "name": "Moderasyon", "desc": "Sunucu moderasyon komutları",
-        "cmds": ["`/ban`", "`/kick`", "`/warn`", "`/uyarılar`", "`/purge`", "`/lock`", "`/unlock`", "`/slowmode`", "`/embed`", "`/ozel-komut`", "`/yedek-yukle`"]},
+        "cmds": ["`/ban`", "`/kick`", "`/warn`", "`/uyarılar`", "`/purge`", "`/lock`", "`/unlock`", "`/slowmode`", "`/embed`"]},
     "ticket": {"emoji": "🎫", "name": "Ticket", "desc": "Destek ticket sistemi",
         "cmds": ["`/ticket`", "`/ticket-yetkili`", "`/ticket-log`"]},
     "koruma": {"emoji": "🛡️", "name": "Koruma", "desc": "Bot koruma ve otomatik moderasyon",
@@ -215,58 +213,7 @@ class Bilgi(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view)
         view.message = await interaction.original_response()
 
-    @app_commands.command(name="reload", description="Tüm komut dosyalarını yeniden yükle (sadece bot sahibi)")
-    @app_commands.guild_only()
-    async def reload(self, interaction: discord.Interaction):
-        owner = (await self.bot.application_info()).owner
-        if interaction.user.id != owner.id:
-            await interaction.response.send_message("Bu komutu sadece bot sahibi kullanabilir!", ephemeral=True)
-            return
 
-        await interaction.response.defer(ephemeral=True)
-        results = {"loaded": [], "failed": []}
-
-        for filename in os.listdir("cogs"):
-            if filename.endswith(".py") and filename != "__init__.py":
-                cog_name = f"cogs.{filename[:-3]}"
-                try:
-                    await self.bot.reload_extension(cog_name)
-                    results["loaded"].append(filename)
-                except Exception as e:
-                    results["failed"].append(f"{filename}: {e}")
-
-        try:
-            self.bot.tree.clear_commands(guild=interaction.guild)
-            await self.bot.tree.sync(guild=interaction.guild)
-        except:
-            pass
-
-        try:
-            await self.bot.tree.sync()
-        except:
-            pass
-
-        embed = discord.Embed(title="Komutlar Yeniden Yüklendi", color=discord.Color.green() if not results["failed"] else discord.Color.orange())
-        embed.add_field(name="Başarılı", value=str(len(results["loaded"])), inline=True)
-        embed.add_field(name="Başarısız", value=str(len(results["failed"])), inline=True)
-        if results["failed"]:
-            embed.add_field(name="Hatalar", value="\n".join(results["failed"][:5]), inline=False)
-        await interaction.followup.send(embed=embed)
-
-    @app_commands.command(name="forcesync", description="Komutları manuel senkronize et (bot sahibi)")
-    @app_commands.guild_only()
-    async def forcesync(self, interaction: discord.Interaction):
-        owner = (await self.bot.application_info()).owner
-        if interaction.user.id != owner.id:
-            await interaction.response.send_message("Bu komutu sadece bot sahibi kullanabilir!", ephemeral=True)
-            return
-        await interaction.response.defer(ephemeral=True)
-        try:
-            self.bot.tree.clear_commands(guild=interaction.guild)
-            await self.bot.tree.sync(guild=interaction.guild)
-            await interaction.followup.send("Komutlar bu sunucu için senkronize edildi. Birkaç dakika içinde görünür olmalı.", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"Sync hatası: {e}", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Bilgi(bot))

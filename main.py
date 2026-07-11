@@ -355,7 +355,7 @@ async def on_guild_join(guild):
         description="Sunucunuza hoş geldiniz! Tüm komutlara `/` yazarak ulaşabilirsiniz.",
         color=discord.Color.blue()
     )
-    embed.add_field(name="🛡️ Moderasyon", value="`/ban` `/kick` `/warn` `/uyarılar` `/purge` `/lock` `/unlock` `/slowmode` `/embed` `/ozel-komut` `/yedek-yukle`", inline=False)
+    embed.add_field(name="🛡️ Moderasyon", value="`/ban` `/kick` `/warn` `/uyarılar` `/purge` `/lock` `/unlock` `/slowmode` `/embed`", inline=False)
     embed.add_field(name="🎫 Ticket", value="`/ticket` `/ticket-yetkili` `/ticket-log`", inline=False)
     embed.add_field(name="🤖 Antibot", value="`/antibot`", inline=False)
     embed.add_field(name="⚡ Oto-Koruma", value="`/otokoruma` `/automod-setup` `/automod-kurallar`", inline=False)
