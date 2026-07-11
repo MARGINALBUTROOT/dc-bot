@@ -130,7 +130,7 @@ class AutoMod(commands.Cog):
         toplam = await self._kurallari_kur(guild)
         print(f"[AUTOMOD] {guild.name}: {toplam}/9 kural kuruldu.")
 
-    @app_commands.command(name="setup_automod", description="AutoMod kurallarini manuel kur")
+    @app_commands.command(name="automod-setup", description="AutoMod kurallarini manuel kur")
     @app_commands.guild_only()
     async def setup_automod(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.administrator:
@@ -142,7 +142,7 @@ class AutoMod(commands.Cog):
         print(f"[AUTOMOD] {interaction.guild.name}: {toplam}/9 kuruldu.")
         await interaction.followup.send(f"**{toplam}/9** AutoMod kurali kuruldu!")
 
-    @app_commands.command(name="automod_kurallar", description="Bu sunucudaki AutoMod kurallarini listele")
+    @app_commands.command(name="automod-kurallar", description="Bu sunucudaki AutoMod kurallarini listele")
     @app_commands.guild_only()
     async def automod_kurallar(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -161,7 +161,7 @@ class AutoMod(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"Kurallar alinamadi: {e}")
 
-    @app_commands.command(name="automod_stats", description="Toplam AutoMod kural sayisini goster")
+    @app_commands.command(name="automod-stats", description="Toplam AutoMod kural sayisini goster")
     async def automod_stats(self, interaction: discord.Interaction):
         await interaction.response.defer()
         toplam_kural = 0

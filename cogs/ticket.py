@@ -199,7 +199,7 @@ class TicketSistemi(commands.Cog):
         await kanal.send(embed=embed, view=TicketView(self.bot))
         await interaction.followup.send(f"Ticket paneli {kanal.mention} kanalına kuruldu!")
 
-    @app_commands.command(name="ticket_yetkili", description="Ticketları görebilecek yetkili rolü ekle/çıkar")
+    @app_commands.command(name="ticket-yetkili", description="Ticketları görebilecek yetkili rolü ekle/çıkar")
     @app_commands.describe(rol="Yetkili rol", durum="Ekle veya çıkar")
     @app_commands.guild_only()
     async def ticket_yetkili(self, interaction: discord.Interaction, rol: discord.Role, durum: str = "ekle"):
@@ -227,7 +227,7 @@ class TicketSistemi(commands.Cog):
         else:
             await interaction.response.send_message("`ekle` veya `çıkar` yazın.", ephemeral=True)
 
-    @app_commands.command(name="ticket_log", description="Ticket log kanalını ayarla")
+    @app_commands.command(name="ticket-log", description="Ticket log kanalını ayarla")
     @app_commands.describe(kanal="Log kanalı")
     @app_commands.guild_only()
     async def ticket_log(self, interaction: discord.Interaction, kanal: discord.TextChannel):

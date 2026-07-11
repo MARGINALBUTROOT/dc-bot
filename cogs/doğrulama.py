@@ -17,7 +17,7 @@ class DogrulamaView(discord.ui.View):
         settings = self.cog._get_settings(interaction.guild.id)
         uye_rol_id = settings.get("uye_rol")
         if not uye_rol_id:
-            await interaction.response.send_message("Doğrulama sistemi ayarlanmamış! (/üyedoğrulama ayarlar)", ephemeral=True)
+            await interaction.response.send_message("Doğrulama sistemi ayarlanmamış! (/dogrulama ayarlar)", ephemeral=True)
             return
         uye_rol = interaction.guild.get_role(int(uye_rol_id))
         if not uye_rol:
@@ -213,7 +213,7 @@ class Dogrulama(commands.Cog):
                 kanallar.append(app_commands.Choice(value=str(kanal.id), name=f"{tur} {kanal.name}"))
         return kanallar[:25]
 
-    @app_commands.command(name="üyedoğrulama", description="Üye doğrulama sistemi ayarlari")
+    @app_commands.command(name="dogrulama", description="Üye doğrulama sistemi ayarlari")
     @app_commands.describe(
         kayitsiz_rol="Sunucuya katilanda olacak kayitsiz rol",
         uye_rol="Dogrulama sonrasi verilecek üye rol",
