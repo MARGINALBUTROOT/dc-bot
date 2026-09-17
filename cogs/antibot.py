@@ -118,43 +118,6 @@ class GuvenliEkleModal(discord.ui.Modal, title="Güvenli Bot Ekle"):
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
 
-class UyariRolModal(discord.ui.Modal, title="Onay Yetkili Rolleri Ayarla"):
-    def __init__(self, cog, guild_id):
-        super().__init__()
-        self.cog = cog
-        self.guild_id = guild_id
-        self.roller = discord.ui.TextInput(
-            label="Rol ID'leri",
-            placeholder="ID'leri virgülle ayır (boş bırak: temizle)",
-            required=False,
-            max_length=500,
-        )
-        self.add_item(self.roller)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        role_ids = []
-        raw = self.roller.value.strip()
-        for value in raw.replace("<@&", "").replace(">", "").split(","):
-            value = value.strip()
-            if not value:
-                continue
-            if not value.isdigit():
-                await interaction.response.send_message("Sadece rol ID veya rol mention girin.", ephemeral=True)
-                return
-            role = interaction.guild.get_role(int(value))
-            if not role or role.is_default() or role >= interaction.guild.me.top_role:
-                await interaction.response.send_message("Geçersiz veya bot rolünün üstündeki bir rol seçildi.", ephemeral=True)
-                return
-            role_ids.append(str(role.id))
-
-        settings = self.cog._get_guild_settings(self.guild_id)
-        settings["uyari_rolleri"] = role_ids
-        self.cog._save_guild_settings(self.guild_id, settings)
-        await interaction.response.send_message(
-            f"Onay yetkili rolleri güncellendi: {len(role_ids)} rol.", ephemeral=True
-        )
-
-
 class GuvenliSilModal(discord.ui.Modal, title="Güvenli Bot Çıkar"):
     def __init__(self, cog, guild_id):
         super().__init__()
@@ -172,6 +135,83 @@ class GuvenliSilModal(discord.ui.Modal, title="Güvenli Bot Çıkar"):
         settings["guvenli_botlar"].remove(bid)
         self.cog._save_guild_settings(self.guild_id, settings)
         await interaction.response.send_message(f"Bot `{bid}` güvenli listeden çıkarıldı.", ephemeral=True)
+
+
+class YetkiliEkleModal(discord.ui.Modal, title="İzinli Yönetici Ekle"):
+    def __init__(self, cog, guild_id):
+        super().__init__()
+        self.cog = cog
+        self.guild_id = guild_id
+        self.user_id = discord.ui.TextInput(label="Yönetici kullanıcı ID", placeholder="Bot eklemesine izin verilecek yönetici ID'si", required=True, max_length=30)
+        self.add_item(self.user_id)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        uid = self.user_id.value.strip()
+        if not uid.isdigit():
+            await interaction.response.send_message("Geçerli bir kullanıcı ID gir.", ephemeral=True)
+            return
+        member = interaction.guild.get_member(int(uid))
+        if not member or not member.guild_permissions.administrator:
+            await interaction.response.send_message("Bu kullanıcı sunucuda olmalı ve Administrator yetkisine sahip olmalı.", ephemeral=True)
+            return
+        settings = self.cog._get_guild_settings(self.guild_id)
+        if uid not in settings["izinli_yetkililer"]:
+            settings["izinli_yetkililer"].append(uid)
+            self.cog._save_guild_settings(self.guild_id, settings)
+        await interaction.response.send_message(f"{member.mention} bot ekleme izinlileri listesine eklendi.", ephemeral=True)
+
+
+class YetkiliSilModal(discord.ui.Modal, title="İzinli Yönetici Çıkar"):
+    def __init__(self, cog, guild_id):
+        super().__init__()
+        self.cog = cog
+        self.guild_id = guild_id
+        self.user_id = discord.ui.TextInput(label="Yönetici kullanıcı ID", required=True, max_length=30)
+        self.add_item(self.user_id)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        uid = self.user_id.value.strip()
+        settings = self.cog._get_guild_settings(self.guild_id)
+        if uid not in settings["izinli_yetkililer"]:
+            await interaction.response.send_message("Bu kullanıcı izinli listede değil.", ephemeral=True)
+            return
+        settings["izinli_yetkililer"].remove(uid)
+        self.cog._save_guild_settings(self.guild_id, settings)
+        await interaction.response.send_message(f"`{uid}` izinli yönetici listesinden çıkarıldı.", ephemeral=True)
+
+
+class ManuelKanalModal(discord.ui.Modal, title="Manuel Kanal Kilidi"):
+    def __init__(self, cog, guild_id):
+        super().__init__()
+        self.cog = cog
+        self.guild_id = guild_id
+        self.kanal = discord.ui.TextInput(label="Yazı kanalı ID veya mention", placeholder="123456789012345678 veya #kanal", required=True, max_length=50)
+        self.islem = discord.ui.TextInput(label="İşlem", placeholder="kilitle veya aç", required=True, max_length=10)
+        self.add_item(self.kanal)
+        self.add_item(self.islem)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        value = self.kanal.value.strip()
+        if value.startswith("<#") and value.endswith(">"):
+            value = value[2:-1]
+        if not value.isdigit():
+            await interaction.response.send_message("Geçerli bir kanal ID veya mention gir.", ephemeral=True)
+            return
+        channel = interaction.guild.get_channel(int(value))
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message("Bu ID bir yazı kanalına ait değil.", ephemeral=True)
+            return
+        action = self.islem.value.strip().lower()
+        if action not in {"kilitle", "kitle", "lock", "aç", "ac", "unlock"}:
+            await interaction.response.send_message("İşlem olarak `kilitle` veya `aç` yaz.", ephemeral=True)
+            return
+        locked = action in {"kilitle", "kitle", "lock"}
+        try:
+            await self.cog._set_channel_lock(interaction.guild, channel, locked)
+        except (discord.Forbidden, discord.HTTPException, RuntimeError):
+            await interaction.response.send_message("Kanal izni değiştirilemedi. Botta Manage Channels yetkisi olmalı.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"{channel.mention} {'kilitlendi' if locked else 'açıldı'}.", ephemeral=True)
 
 
 class OnayView(discord.ui.View):
@@ -260,19 +300,38 @@ class AntibotView(discord.ui.View):
         embed.set_footer(text=f"Toplam {len(guvenliler)} bot")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="Onay Yetkilileri", style=discord.ButtonStyle.danger, emoji="🛡️")
-    async def uyari_rolleri(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(UyariRolModal(self.cog, self.guild_id))
+    @discord.ui.button(label="Yönetici Ekle", style=discord.ButtonStyle.secondary, emoji="👤")
+    async def yetkili_ekle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(YetkiliEkleModal(self.cog, self.guild_id))
+
+    @discord.ui.button(label="Yönetici Çıkar", style=discord.ButtonStyle.secondary, emoji="🚫")
+    async def yetkili_cikar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(YetkiliSilModal(self.cog, self.guild_id))
+
+    @discord.ui.button(label="Yönetici Listesi", style=discord.ButtonStyle.secondary, emoji="📋")
+    async def yetkili_liste(self, interaction: discord.Interaction, button: discord.ui.Button):
+        settings = self.cog._get_guild_settings(self.guild_id)
+        ids = settings.get("izinli_yetkililer", [])
+        await interaction.response.send_message(
+            "\n".join(f"• <@{uid}> (`{uid}`)" for uid in ids) if ids else "İzinli yönetici yok.",
+            ephemeral=True,
+        )
 
     @discord.ui.button(label="Kalkanı Başlat", style=discord.ButtonStyle.success, emoji="🛡️")
     async def kalkan_baslat(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.cog._run_shield(interaction)
 
+    @discord.ui.button(label="Dış Giriş Kilidini Aç", style=discord.ButtonStyle.primary, emoji="🔓")
+    async def dis_giris_ac(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            await self.cog._set_join_lockdown(interaction.guild, False)
+            await interaction.response.send_message("Dış giriş kilidi açıldı; sunucu eski doğrulama seviyesine döndü.", ephemeral=True)
+        except (discord.Forbidden, discord.HTTPException, RuntimeError):
+            await interaction.response.send_message("Dış giriş kilidi açılamadı. Botta Manage Server yetkisi olmalı.", ephemeral=True)
+
     @discord.ui.button(label="Kanalları Kilitle/Aç", style=discord.ButtonStyle.danger, emoji="🔒")
     async def kanallari_kilitle(self, interaction: discord.Interaction, button: discord.ui.Button):
-        count, locked = await self.cog._toggle_channel_lock(interaction.guild)
-        durum = "kilitlendi" if locked else "açıldı"
-        await interaction.response.send_message(f"{count} yazı kanalı {durum}.", ephemeral=True)
+        await interaction.response.send_modal(ManuelKanalModal(self.cog, self.guild_id))
 
     async def _build_embed(self, guild):
         s = self.cog._get_guild_settings(self.guild_id)
@@ -284,8 +343,8 @@ class AntibotView(discord.ui.View):
         embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
         guvenli_sayisi = len(s.get("guvenli_botlar", []))
         embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        uyari_sayisi = len(s.get("uyari_rolleri", []))
-        embed.add_field(name="Onay Yetkilileri", value=f"{uyari_sayisi} rol" if uyari_sayisi else "Yalnızca yöneticiler", inline=False)
+        yetkili_sayisi = len(s.get("izinli_yetkililer", []))
+        embed.add_field(name="Bot Ekleyebilen Yöneticiler", value=f"{yetkili_sayisi} kişi" if yetkili_sayisi else "Yok", inline=False)
         embed.set_footer(text="Butonları kullanarak ayarları değiştirebilirsin")
         return embed
 
@@ -314,7 +373,7 @@ class Antibot(commands.Cog):
 
     def _get_guild_settings(self, guild_id: int):
         # Safe default: only explicitly approved bots may join.
-        defaults = {"aktif": False, "system1_aktif": False, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "uyari_rolleri": [], "kanal_kilitli": False, "kanal_kilitleri": {}}
+        defaults = {"aktif": False, "system1_aktif": False, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "izinli_yetkililer": [], "kanal_kilitli": False, "kanal_kilitleri": {}, "join_lockdown": False, "onceki_dogrulama": None}
         settings = read_json(self.settings_file, {})
         gid = str(guild_id)
         if gid not in settings:
@@ -343,20 +402,11 @@ class Antibot(commands.Cog):
     def _is_trusted_bot(self, member, settings):
         return str(member.id) in {str(bot_id) for bot_id in settings.get("guvenli_botlar", [])}
 
-    def _get_alert_roles(self, guild, settings):
-        roles = []
-        for role_id in settings.get("uyari_rolleri", []):
-            role = guild.get_role(int(role_id))
-            if role:
-                roles.append(role)
-        return roles
-
     def _can_approve(self, interaction):
         if interaction.user.guild_permissions.administrator or interaction.user.guild_permissions.manage_guild:
             return True
         settings = self._get_guild_settings(interaction.guild.id)
-        allowed = {int(role_id) for role_id in settings.get("uyari_rolleri", [])}
-        return any(role.id in allowed for role in interaction.user.roles)
+        return str(interaction.user.id) in {str(uid) for uid in settings.get("izinli_yetkililer", [])}
 
     async def _quarantine(self, member):
         key = (member.guild.id, member.id)
@@ -431,49 +481,89 @@ class Antibot(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             pass
 
-    async def _toggle_channel_lock(self, guild):
+    async def _set_channel_lock(self, guild, channel, locked):
+        if not guild.me.guild_permissions.manage_channels:
+            raise RuntimeError("Manage Channels yetkisi gerekli")
         settings = self._get_guild_settings(guild.id)
         backups = self.channel_lock_backups.setdefault(guild.id, {})
-        if settings.get("kanal_kilitli", False):
-            restored = 0
-            saved = settings.get("kanal_kilitleri", {})
-            for channel_id, saved_value in saved.items():
-                channel = guild.get_channel(int(channel_id))
-                if not channel:
-                    continue
-                try:
-                    overwrite = backups.get(int(channel_id))
-                    if overwrite is not None:
-                        await channel.set_permissions(guild.default_role, overwrite=overwrite, reason="Antibot paneli - kanal kilidi açıldı")
-                    else:
-                        await channel.set_permissions(guild.default_role, send_messages=saved_value, reason="Antibot paneli - kanal kilidi açıldı")
-                    restored += 1
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            backups.clear()
-            settings["kanal_kilitli"] = False
-            settings["kanal_kilitleri"] = {}
-            self._save_guild_settings(guild.id, settings)
-            return restored, False
-
-        locked = 0
-        for channel in guild.text_channels:
-            try:
+        if locked:
+            if channel.id not in backups:
                 backups[channel.id] = channel.overwrites_for(guild.default_role)
+            await channel.set_permissions(
+                guild.default_role,
+                send_messages=False,
+                reason="Antibot paneli - manuel kanal kilidi",
+            )
+            settings["kanal_kilitli"] = True
+            settings.setdefault("kanal_kilitleri", {})[str(channel.id)] = backups[channel.id].send_messages
+        else:
+            overwrite = backups.pop(channel.id, None)
+            saved_map = settings.setdefault("kanal_kilitleri", {})
+            channel_key = str(channel.id)
+            if overwrite is None and channel_key not in saved_map:
+                raise RuntimeError("Bu kanal panel tarafından kilitlenmemiş")
+            saved = saved_map.pop(channel_key, None)
+            if overwrite is not None:
                 await channel.set_permissions(
                     guild.default_role,
-                    send_messages=False,
-                    reason="Antibot paneli - tüm yazı kanalları kilitlendi",
+                    overwrite=None if overwrite.is_empty() else overwrite,
+                    reason="Antibot paneli - manuel kanal kilidi açıldı",
                 )
-                locked += 1
+            else:
+                await channel.set_permissions(
+                    guild.default_role,
+                    send_messages=saved,
+                    reason="Antibot paneli - manuel kanal kilidi açıldı",
+                )
+            settings["kanal_kilitli"] = bool(settings.get("kanal_kilitleri"))
+        self._save_guild_settings(guild.id, settings)
+
+    async def _set_join_lockdown(self, guild, locked):
+        if not guild.me.guild_permissions.manage_guild:
+            raise RuntimeError("Manage Server yetkisi gerekli")
+        settings = self._get_guild_settings(guild.id)
+        if locked:
+            if settings.get("join_lockdown"):
+                return
+            settings["onceki_dogrulama"] = guild.verification_level.value
+            await guild.edit(
+                verification_level=discord.VerificationLevel.highest,
+                reason="Antibot kalkanı - dış girişler geçici olarak kapatıldı",
+            )
+            try:
+                invites = await guild.invites()
+                await asyncio.gather(*(invite.delete(reason="Antibot kalkanı raid kilidi") for invite in invites))
             except (discord.Forbidden, discord.HTTPException):
                 pass
-        settings["kanal_kilitli"] = True
-        settings["kanal_kilitleri"] = {
-            str(channel_id): overwrite.send_messages for channel_id, overwrite in backups.items()
-        }
+            settings["join_lockdown"] = True
+        else:
+            previous = settings.get("onceki_dogrulama")
+            if previous is not None:
+                await guild.edit(
+                    verification_level=discord.VerificationLevel(previous),
+                    reason="Antibot kalkanı - dış giriş kilidi açıldı",
+                )
+            settings["join_lockdown"] = False
+            settings["onceki_dogrulama"] = None
         self._save_guild_settings(guild.id, settings)
-        return locked, True
+
+    async def _bot_inviter(self, guild, bot_id):
+        if not guild.me.guild_permissions.view_audit_log:
+            return None
+        try:
+            async for entry in guild.audit_logs(limit=10, action=discord.AuditLogAction.bot_add):
+                if entry.target and entry.target.id == bot_id:
+                    age = (datetime.now(timezone.utc) - entry.created_at).total_seconds()
+                    if age < 30:
+                        return entry.user
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        return None
+
+    async def _allowed_bot_inviter(self, guild, member, settings):
+        inviter = await self._bot_inviter(guild, member.id)
+        allowed = {str(uid) for uid in settings.get("izinli_yetkililer", [])}
+        return inviter, inviter is not None and str(inviter.id) in allowed
 
     async def _request_review(self, member, settings, reason):
         key = (member.guild.id, member.id)
@@ -501,8 +591,8 @@ class Antibot(commands.Cog):
         embed.add_field(name="Bildirim Kanalı", value=kanal.mention if kanal else "Ayarlanmamış", inline=False)
         guvenli_sayisi = len(s.get("guvenli_botlar", []))
         embed.add_field(name="Güvenli Bot", value=f"{guvenli_sayisi} bot listede" if guvenli_sayisi else "Yok", inline=False)
-        uyari_sayisi = len(s.get("uyari_rolleri", []))
-        embed.add_field(name="Onay Yetkilileri", value=f"{uyari_sayisi} rol" if uyari_sayisi else "Yalnızca yöneticiler", inline=False)
+        yetkili_sayisi = len(s.get("izinli_yetkililer", []))
+        embed.add_field(name="Bot Ekleyebilen Yöneticiler", value=f"{yetkili_sayisi} kişi" if yetkili_sayisi else "Yok", inline=False)
         embed.set_footer(text="Butonları kullanarak ayarları değiştirebilirsin")
         return embed
 
@@ -525,13 +615,13 @@ class Antibot(commands.Cog):
             await guild.chunk(cache=True)
         except (discord.Forbidden, discord.HTTPException):
             pass
-        targets = [
-            member for member in guild.members
-            if member.bot
-            and member.id != self.bot.user.id
-            and str(member.id) not in trusted
-            and member.top_role < guild.me.top_role
-        ]
+        targets = []
+        for member in guild.members:
+            if not member.bot or member.id == self.bot.user.id or str(member.id) in trusted:
+                continue
+            _, allowed = await self._allowed_bot_inviter(guild, member, settings)
+            if not allowed and member.top_role < guild.me.top_role:
+                targets.append(member)
 
         await asyncio.gather(*(self._request_review(member, settings, "Güvenli listede olmayan bot") for member in targets))
         return targets
@@ -539,9 +629,9 @@ class Antibot(commands.Cog):
     async def _run_shield(self, interaction: discord.Interaction):
         guild = interaction.guild
         me = guild.me
-        if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels:
+        if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels or not me.guild_permissions.manage_guild:
             await interaction.response.send_message(
-                "System1 için botta `Ban Members` ve `Manage Channels` yetkileri olmalı.",
+                "Kalkan için botta `Ban Members`, `Manage Channels` ve `Manage Server` yetkileri olmalı.",
                 ephemeral=True,
             )
             return
@@ -554,31 +644,12 @@ class Antibot(commands.Cog):
         settings["mutlak"] = False
         self._save_guild_settings(guild.id, settings)
 
-        locked = []
         try:
-            for channel in guild.text_channels:
-                try:
-                    previous = channel.overwrites_for(guild.default_role)
-                    await channel.set_permissions(
-                        guild.default_role,
-                        send_messages=False,
-                        reason="System1 - bot temizliği sırasında kanal kilidi",
-                    )
-                    locked.append((channel, previous))
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+            await self._set_join_lockdown(guild, True)
+        except (discord.Forbidden, discord.HTTPException, RuntimeError):
+            await interaction.followup.send("Kalkan başladı ancak dış giriş kilidi açılamadı. Botta Manage Server yetkisini kontrol et.", ephemeral=True)
 
-            targets = await self._review_untrusted_bots(guild)
-        finally:
-            for channel, previous in locked:
-                try:
-                    await channel.set_permissions(
-                        guild.default_role,
-                        overwrite=None if previous.is_empty() else previous,
-                        reason="System1 - bot temizliği tamamlandı",
-                    )
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+        targets = await self._review_untrusted_bots(guild)
 
         if targets:
             names = ", ".join(f"`{member.name}`" for member in targets[:15])
@@ -591,8 +662,7 @@ class Antibot(commands.Cog):
             )
 
         await interaction.followup.send(
-            f"System1 tamamlandı. {len(locked)} kanal kilitlendi/açıldı, "
-            f"{len(targets)} şüpheli bot karantinaya alındı, yetkili onayı bekleniyor. "
+            f"Kalkan aktif. {len(targets)} şüpheli bot karantinaya alındı, yetkili onayı bekleniyor. "
             "Sürekli antibot koruması aktif.",
             ephemeral=True,
         )
@@ -612,6 +682,16 @@ class Antibot(commands.Cog):
         if self._is_trusted_bot(member, settings):
             return
         if member.id == self.bot.user.id:
+            return
+        inviter, allowed = await self._allowed_bot_inviter(member.guild, member, settings)
+        if allowed:
+            await self._alert(
+                member.guild,
+                settings,
+                "İzinli yönetici bot ekledi",
+                f"{member.mention} (`{member.name}`) {inviter.mention} tarafından eklendi ve otomatik olarak izin verildi.\nBot ID: `{member.id}`",
+                discord.Color.green(),
+            )
             return
         await self._request_review(member, settings, "Güvenli listede olmayan bot sunucuya katıldı")
 
