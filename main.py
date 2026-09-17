@@ -13,6 +13,28 @@ from app import app
 from utils_json import read_json as _read_json, write_json as _write_json
 
 SYNC_FILE = os.path.join(DATA_DIR, "sync_pending.json") if DATA_DIR else "sync_pending.json"
+SETTINGS_RESET_VERSION = "2026-09-17-clean-install-v1"
+SETTINGS_RESET_MARKER = "settings_reset_marker.json"
+SETTINGS_FILES_TO_RESET = (
+    "antibot_settings.json",
+    "log_settings.json",
+    "autmod_settings.json",
+    "ozel_komutlar.json",
+    "modlogs.json",
+)
+
+
+def reset_settings_once():
+    marker = _read_json(SETTINGS_RESET_MARKER, {})
+    if marker.get("version") == SETTINGS_RESET_VERSION:
+        return
+    for filename in SETTINGS_FILES_TO_RESET:
+        _write_json(filename, {})
+    _write_json(SETTINGS_RESET_MARKER, {"version": SETTINGS_RESET_VERSION})
+    print("[VERI] Sunucu ayarlari tek seferlik sifirlandi; yeniden kurulum bekleniyor.")
+
+
+reset_settings_once()
 
 intents = discord.Intents.default()
 intents.message_content = True

@@ -367,8 +367,9 @@ class AntibotView(discord.ui.View):
     @discord.ui.button(label="Aç/Kapat", style=discord.ButtonStyle.success, emoji="🔛")
     async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button):
         s = self.cog._get_guild_settings(self.guild_id)
-        s["aktif"] = not s["aktif"]
-        s["system1_aktif"] = s["aktif"]
+        yeni_durum = not s["aktif"]
+        s["aktif"] = yeni_durum
+        s["system1_aktif"] = yeni_durum
         self.cog._save_guild_settings(self.guild_id, s)
         embed = await self._build_embed(interaction.guild)
         await interaction.response.edit_message(embed=embed, view=self)
@@ -422,14 +423,6 @@ class AntibotView(discord.ui.View):
     async def kalkan_baslat(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.cog._run_shield(interaction)
 
-    @discord.ui.button(label="Dış Giriş Kilidini Aç", style=discord.ButtonStyle.primary, emoji="🔓")
-    async def dis_giris_ac(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await self.cog._set_join_lockdown(interaction.guild, False)
-            await interaction.response.send_message("Dış giriş kilidi açıldı; sunucu eski doğrulama seviyesine döndü.", ephemeral=True)
-        except (discord.Forbidden, discord.HTTPException, RuntimeError):
-            await interaction.response.send_message("Dış giriş kilidi açılamadı. Botta Manage Server yetkisi olmalı.", ephemeral=True)
-
     @discord.ui.button(label="Kanalları Kilitle/Aç", style=discord.ButtonStyle.danger, emoji="🔒")
     async def kanallari_kilitle(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ManuelKanalModal(self.cog, self.guild_id))
@@ -474,7 +467,7 @@ class Antibot(commands.Cog):
 
     def _get_guild_settings(self, guild_id: int):
         # Safe default: only explicitly approved bots may join.
-        defaults = {"aktif": False, "system1_aktif": False, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "izinli_yetkililer": [], "kanal_kilitli": False, "kanal_kilitleri": {}, "join_lockdown": False, "onceki_dogrulama": None}
+        defaults = {"aktif": False, "system1_aktif": False, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "izinli_yetkililer": [], "kanal_kilitli": False, "kanal_kilitleri": {}}
         settings = read_json(self.settings_file, {})
         gid = str(guild_id)
         if gid not in settings:
@@ -619,35 +612,6 @@ class Antibot(commands.Cog):
             settings["kanal_kilitli"] = bool(settings.get("kanal_kilitleri"))
         self._save_guild_settings(guild.id, settings)
 
-    async def _set_join_lockdown(self, guild, locked):
-        if not guild.me.guild_permissions.manage_guild:
-            raise RuntimeError("Manage Server yetkisi gerekli")
-        settings = self._get_guild_settings(guild.id)
-        if locked:
-            if settings.get("join_lockdown"):
-                return
-            settings["onceki_dogrulama"] = guild.verification_level.value
-            await guild.edit(
-                verification_level=discord.VerificationLevel.highest,
-                reason="Antibot kalkanı - dış girişler geçici olarak kapatıldı",
-            )
-            try:
-                invites = await guild.invites()
-                await asyncio.gather(*(invite.delete(reason="Antibot kalkanı raid kilidi") for invite in invites))
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-            settings["join_lockdown"] = True
-        else:
-            previous = settings.get("onceki_dogrulama")
-            if previous is not None:
-                await guild.edit(
-                    verification_level=discord.VerificationLevel(previous),
-                    reason="Antibot kalkanı - dış giriş kilidi açıldı",
-                )
-            settings["join_lockdown"] = False
-            settings["onceki_dogrulama"] = None
-        self._save_guild_settings(guild.id, settings)
-
     async def _bot_inviter(self, guild, bot_id):
         if not guild.me.guild_permissions.view_audit_log:
             return None
@@ -750,9 +714,9 @@ class Antibot(commands.Cog):
     async def _run_shield(self, interaction: discord.Interaction):
         guild = interaction.guild
         me = guild.me
-        if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels or not me.guild_permissions.manage_guild:
+        if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "Kalkan için botta `Ban Members`, `Manage Channels` ve `Manage Server` yetkileri olmalı.",
+                "Kalkan için botta `Ban Members` ve `Manage Channels` yetkileri olmalı.",
                 ephemeral=True,
             )
             return
@@ -764,11 +728,6 @@ class Antibot(commands.Cog):
         # System1 uses the allowlist: every bot outside it is suspicious.
         settings["mutlak"] = False
         self._save_guild_settings(guild.id, settings)
-
-        try:
-            await self._set_join_lockdown(guild, True)
-        except (discord.Forbidden, discord.HTTPException, RuntimeError):
-            await interaction.followup.send("Kalkan başladı ancak dış giriş kilidi açılamadı. Botta Manage Server yetkisini kontrol et.", ephemeral=True)
 
         targets = await self._review_untrusted_bots(guild)
 
