@@ -203,7 +203,7 @@ class AntibotView(discord.ui.View):
 
     @discord.ui.button(label="Kalkanı Başlat", style=discord.ButtonStyle.success, emoji="🛡️")
     async def kalkan_baslat(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.cog._run_system1(interaction)
+        await self.cog._run_shield(interaction)
 
     async def _build_embed(self, guild):
         s = self.cog._get_guild_settings(self.guild_id)
@@ -241,7 +241,7 @@ class Antibot(commands.Cog):
 
     def _get_guild_settings(self, guild_id: int):
         # Safe default: only explicitly approved bots may join.
-        defaults = {"aktif": True, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "uyari_rolleri": []}
+        defaults = {"aktif": False, "system1_aktif": False, "mutlak": False, "esik": 6, "kanal_id": None, "guvenli_botlar": [], "uyari_rolleri": []}
         settings = read_json(self.settings_file, {})
         gid = str(guild_id)
         if gid not in settings:
@@ -348,19 +348,7 @@ class Antibot(commands.Cog):
         failed = [member for member, error in results if error is not None]
         return banned, failed
 
-    @app_commands.command(name="system1", description="Tüm yabancı botları hızlıca temizle ve bot korumasını aç")
-    @app_commands.guild_only()
-    @app_commands.checks.has_permissions(administrator=True)
-    async def system1(self, interaction: discord.Interaction):
-        s = self._get_guild_settings(interaction.guild.id)
-        embed = await self._refresh_embed(s, interaction.guild)
-        embed.title = "System1 Güvenlik Kalkanı"
-        embed.description = "Önce güvenli botları ekle ve uyarı rollerini ayarla. Sonra kalkanı başlat."
-        view = AntibotView(self, interaction.guild.id)
-        await interaction.response.send_message(embed=embed, view=view)
-        view.message = await interaction.original_response()
-
-    async def _run_system1(self, interaction: discord.Interaction):
+    async def _run_shield(self, interaction: discord.Interaction):
         guild = interaction.guild
         me = guild.me
         if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels:
@@ -373,6 +361,7 @@ class Antibot(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         settings = self._get_guild_settings(guild.id)
         settings["aktif"] = True
+        settings["system1_aktif"] = True
         # System1 uses the allowlist: every bot outside it is suspicious.
         settings["mutlak"] = False
         self._save_guild_settings(guild.id, settings)
@@ -423,7 +412,7 @@ class Antibot(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         settings = self._get_guild_settings(member.guild.id)
-        if not settings["aktif"]:
+        if not settings.get("system1_aktif", False):
             return
 
         if not member.bot:
@@ -463,7 +452,7 @@ class Antibot(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         settings = self._get_guild_settings(member.guild.id)
-        if not settings["aktif"] or not member.bot or self._is_trusted_bot(member, settings):
+        if not settings.get("system1_aktif", False) or not member.bot or self._is_trusted_bot(member, settings):
             return
         await self._alert(
             member.guild,
@@ -478,7 +467,7 @@ class Antibot(commands.Cog):
         """Catch bots that joined while this process was offline."""
         for guild in self.bot.guilds:
             settings = self._get_guild_settings(guild.id)
-            if not settings["aktif"] or not guild.me.guild_permissions.ban_members:
+            if not settings.get("system1_aktif", False) or not guild.me.guild_permissions.ban_members:
                 continue
             trusted = {str(bot_id) for bot_id in settings.get("guvenli_botlar", [])}
             for member in guild.members:
@@ -503,7 +492,7 @@ class Antibot(commands.Cog):
         settings = self._get_guild_settings(message.guild.id)
         if self._is_trusted_bot(message.author, settings):
             return
-        if not settings["aktif"]:
+        if not settings.get("system1_aktif", False):
             return
         if not message.guild.me.guild_permissions.ban_members:
             return
