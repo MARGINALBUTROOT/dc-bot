@@ -201,6 +201,10 @@ class AntibotView(discord.ui.View):
     async def uyari_rolleri(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(UyariRolModal(self.cog, self.guild_id))
 
+    @discord.ui.button(label="Kalkanı Başlat", style=discord.ButtonStyle.success, emoji="🛡️")
+    async def kalkan_baslat(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog._run_system1(interaction)
+
     async def _build_embed(self, guild):
         s = self.cog._get_guild_settings(self.guild_id)
         durum = "✅ Aktif" if s["aktif"] else "❌ Devre Dışı"
@@ -344,6 +348,15 @@ class Antibot(commands.Cog):
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
     async def system1(self, interaction: discord.Interaction):
+        s = self._get_guild_settings(interaction.guild.id)
+        embed = await self._refresh_embed(s, interaction.guild)
+        embed.title = "System1 Güvenlik Kalkanı"
+        embed.description = "Önce güvenli botları ekle ve uyarı rollerini ayarla. Sonra kalkanı başlat."
+        view = AntibotView(self, interaction.guild.id)
+        await interaction.response.send_message(embed=embed, view=view)
+        view.message = await interaction.original_response()
+
+    async def _run_system1(self, interaction: discord.Interaction):
         guild = interaction.guild
         me = guild.me
         if not me.guild_permissions.ban_members or not me.guild_permissions.manage_channels:
