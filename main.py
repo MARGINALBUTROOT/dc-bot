@@ -286,20 +286,12 @@ async def on_guild_join(guild):
         description="Sunucunuza hoş geldiniz! Tüm komutlara `/` yazarak ulaşabilirsiniz.",
         color=discord.Color.blue()
     )
-    embed.add_field(name="🛡️ Moderasyon", value="`/ban` `/kick` `/purge` `/embed`", inline=False)
-    embed.add_field(name="🎫 Ticket", value="`/ticket` `/ticket-yetkili` `/ticket-log`", inline=False)
+    embed.add_field(name="🛡️ Moderasyon", value="`/ban` `/kick` `/purge`", inline=False)
     embed.add_field(name="🤖 Antibot", value="`/antibot`", inline=False)
     embed.add_field(name="⚡ Oto-Koruma", value="`/otokoruma` `/automod-setup` `/automod-kurallar` `/automod-stats`", inline=False)
     embed.add_field(name="📝 Log", value="`/setlog` `/logayarlari`", inline=False)
-    embed.add_field(name="👋 Karşılama", value="`/karsilama`", inline=False)
-    embed.add_field(name="🎭 Roller", value="`/otorol`", inline=False)
-    embed.add_field(name="🔊 Ses Odaları", value="`/sesoda`", inline=False)
-    embed.add_field(name="🎉 Çekiliş", value="`/giveaway`", inline=False)
-    embed.add_field(name="📊 Anket", value="`/anket`", inline=False)
-    embed.add_field(name="🌐 Sosyal Medya", value="`/instagram` `/testinstagram` `/instagram-sil`", inline=False)
-    embed.add_field(name="✅ Doğrulama", value="`/dogrulama`", inline=False)
     embed.add_field(name="✨ Özel Komutlar", value="`/komutekle` `/komutsil` `/komutlistesi`", inline=False)
-    embed.add_field(name="ℹ️ Bilgi / 🎮 Eğlence", value="`/userinfo` `/serverinfo` `/help` `/yazı-tura` `/zar` `/espri` `/avatar` `/ping`", inline=False)
+    embed.add_field(name="ℹ️ Bilgi", value="`/userinfo` `/serverinfo` `/help` `/avatar` `/ping`", inline=False)
 
     try:
         if guild.system_channel:

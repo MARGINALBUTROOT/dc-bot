@@ -24,12 +24,6 @@ KICK_SEBEPLERI = [
     app_commands.Choice(name="Reklam yapmak", value="Reklam yapmak"),
 ]
 
-EMBED_RENKLERI = {
-    "mavi": discord.Color.blue, "yeşil": discord.Color.green, "kırmızı": discord.Color.red,
-    "altın": discord.Color.gold, "mor": discord.Color.purple, "turuncu": discord.Color.orange,
-    "pembe": discord.Color.magenta, "beyaz": discord.Color.default, "siyah": discord.Color.dark_grey,
-}
-
 class Moderasyon(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -146,40 +140,6 @@ class Moderasyon(commands.Cog):
             await interaction.followup.send(embed=embed)
         except Exception as e:
             await interaction.followup.send(f"Hata: {e}", ephemeral=True)
-
-    @app_commands.command(name="embed", description="Özelleştirilmiş embed mesajı gönder")
-    @app_commands.describe(
-        baslik="Embed başlığı",
-        aciklama="Embed açıklaması",
-        renk="Embed rengi (mavi, yeşil, kırmızı, altın, mor, turuncu, pembe, beyaz, siyah)",
-        kanal="Gönderilecek kanal (varsayılan: bu kanal)",
-        footer="Alt metin (opsiyonel)"
-    )
-    @app_commands.choices(renk=[
-        app_commands.Choice(name="Mavi", value="mavi"), app_commands.Choice(name="Yeşil", value="yeşil"),
-        app_commands.Choice(name="Kırmızı", value="kırmızı"), app_commands.Choice(name="Altın", value="altın"),
-        app_commands.Choice(name="Mor", value="mor"), app_commands.Choice(name="Turuncu", value="turuncu"),
-        app_commands.Choice(name="Pembe", value="pembe"), app_commands.Choice(name="Beyaz", value="beyaz"),
-        app_commands.Choice(name="Siyah", value="siyah"),
-    ])
-    @app_commands.guild_only()
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def embed_gonder(self, interaction: discord.Interaction, baslik: str, aciklama: str, renk: str = "mavi", kanal: discord.TextChannel = None, footer: str = None):
-        if len(baslik) > 256 or len(aciklama) > 4096 or (footer and len(footer) > 2048):
-            await interaction.response.send_message("Başlık 256, açıklama 4096, alt metin 2048 karakteri geçemez.", ephemeral=True)
-            return
-        try:
-            renk_func = EMBED_RENKLERI.get(renk, discord.Color.blue)
-            embed = discord.Embed(title=baslik, description=aciklama, color=renk_func(), timestamp=datetime.now())
-            if footer:
-                embed.set_footer(text=footer)
-            else:
-                embed.set_footer(text=f"{interaction.user.name} tarafından", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-            hedef = kanal or interaction.channel
-            await hedef.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
-            await interaction.response.send_message(f"Embed mesaj {hedef.mention} kanalına gönderildi.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Moderasyon(bot))

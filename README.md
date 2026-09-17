@@ -5,17 +5,11 @@ Profesyonel Discord moderasyon botu ve web admin paneli.
 ## ✨ Özellikler
 
 ### 🎮 Bot Komutları (Slash Commands)
-- `/ban`, `/kick`, `/purge`, `/embed` - Moderasyon ve özel embed mesajları
+- `/ban`, `/kick`, `/purge` - Moderasyon
 - `/antibot`, `/otokoruma`, `/automod-setup`, `/automod-kurallar`, `/automod-stats` - Koruma sistemleri
-- `/ticket`, `/ticket-yetkili`, `/ticket-log` - Ticket yönetimi
 - `/setlog`, `/logayarlari` - Log kanalı yönetimi
-- `/karsilama`, `/otorol`, `/sesoda`, `/dogrulama` - Sunucu sistemleri
-- `/giveaway`, `/anket` - Etkinlik ve oylama
-- `/instagram`, `/testinstagram`, `/instagram-sil` - Instagram bildirimleri
 - `/komutekle`, `/komutsil`, `/komutlistesi` - Sunucuya özel `!` komutları
-- `/userinfo`, `/serverinfo`, `/help`, `/yazi-tura`, `/zar`, `/espri`, `/avatar`, `/ping` - Bilgi ve eğlence
-
-`/karsilama` sistemi yeni üyeler için ROOTx temalı, avatar içeren bir PNG banner üretir. Banner üretilemezse ayarlanmış yazılı mesaj gönderilmeye devam eder.
+- `/userinfo`, `/serverinfo`, `/help`, `/avatar`, `/ping` - Bilgi
 
 ### 📊 Admin Dashboard
 - **Dashboard:** Bot istatistikleri, son işlemler
@@ -74,7 +68,6 @@ dc bot/
 ├── cogs/
 │   ├── moderasyon.py   Moderasyon komutları
 │   ├── antibot.py      Bot koruması
-│   ├── ticket.py       Ticket sistemi
 │   └── ...             Diğer cog modülleri
 ├── templates/
 │   └── dashboard.html  Web interface

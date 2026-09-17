@@ -12,9 +12,9 @@ ILGILI_DOSYALAR = [
     "ozel_komutlar.json", "instagram_settings.json",
     "voice_settings.json", "log_settings.json",
     "ticket_settings.json", "otorol_settings.json",
-    "karsilama_settings.json", "dogrulama_settings.json", "antibot_settings.json",
+    "antibot_settings.json",
     "autmod_settings.json", "modlogs.json",
-    "dogrulama_logs.json", "bot_status.json"
+    "bot_status.json"
 ]
 
 def _guild_data_cek(guild_id):
@@ -39,7 +39,7 @@ def _guild_data_yaz(guild_id, backup_data):
             continue
         if not os.path.exists(dosya):
             with open(dosya, "w", encoding="utf-8") as f:
-                json.dump({} if dosya != "dogrulama_logs.json" else [], f)
+                json.dump({}, f)
         with open(dosya, "r", encoding="utf-8") as f:
             icerik = json.load(f)
         if isinstance(icerik, dict):

@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from utils_json import read_json, write_json
 
 LOG_TYPES = {
@@ -24,14 +24,15 @@ LOG_TYPES = {
     "audit": "Denetim",
     "user": "Kullanıcı Güncelleme",
     "sticker": "Sticker/Soundboard",
-    "integration": "Entegrasyon"
+    "integration": "Entegrasyon",
+    "security": "Güvenlik Olayları"
 }
 
 LOG_EMOJIS = {
     "all": "📋", "message_delete": "🗑️", "message_edit": "✏️", "reaction": "😀", "voice": "🔊",
     "member": "👤", "channel": "📁", "role": "🎖️", "moderation": "🛡️",
     "invite": "📨", "event": "📅", "pins": "📌", "stage": "🎤", "automod": "🤖",
-    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗"
+    "audit": "📜", "user": "🆔", "sticker": "🏷️", "integration": "🔗", "security": "🚨"
 }
 
 class KanalModal(discord.ui.Modal, title="Log Kanalı Ayarla"):
@@ -168,9 +169,28 @@ class LogSistemi(commands.Cog):
             return
         if channel and isinstance(channel, discord.TextChannel):
             try:
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
             except (discord.Forbidden, discord.HTTPException):
                 pass
+
+    async def _audit_actor(self, guild, action, target_id):
+        if not guild.me or not guild.me.guild_permissions.view_audit_log:
+            return None, None
+        try:
+            async for entry in guild.audit_logs(limit=10, action=action):
+                if entry.target and entry.target.id == target_id:
+                    age = (datetime.now(timezone.utc) - entry.created_at).total_seconds()
+                    if age < 20:
+                        return entry.user, entry.reason
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        return None, None
+
+    @staticmethod
+    def _actor_fields(embed, actor, reason):
+        embed.add_field(name="İşlemi Yapan", value=actor.mention if actor else "Bilinmiyor", inline=True)
+        if reason:
+            embed.add_field(name="Sebep", value=reason[:1024], inline=False)
 
     @app_commands.command(name="setlog", description="Log kanallarını ayarla (butonlu menü)")
     @app_commands.guild_only()
@@ -226,7 +246,7 @@ class LogSistemi(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
-        if not message.guild or not message.author or message.author.bot:
+        if not message.guild or not message.author:
             return
 
         embed = discord.Embed(title="Mesaj Silindi", color=discord.Color.red(), timestamp=datetime.now())
@@ -237,6 +257,7 @@ class LogSistemi(commands.Cog):
             embed.add_field(name="İçerik", value=f"```{message.content[:1000]}```", inline=False)
         if message.attachments:
             embed.add_field(name="Ekler", value=f"{len(message.attachments)} dosya", inline=True)
+            embed.add_field(name="Dosya Linkleri", value="\n".join(a.url for a in message.attachments)[:1024], inline=False)
         embed.set_footer(text=f"ID: {message.author.id} • {message.guild.name}")
         await self._send_log(message.guild.id, "message_delete", embed)
 
@@ -267,7 +288,7 @@ class LogSistemi(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if not before.guild or not before.author or before.author.bot:
+        if not before.guild or not before.author:
             return
         if before.content == after.content:
             return
@@ -278,6 +299,12 @@ class LogSistemi(commands.Cog):
         embed.add_field(name="Kanal", value=before.channel.mention, inline=True)
         embed.add_field(name="Önce", value=f"```{before.content[:500]}```", inline=False)
         embed.add_field(name="Sonra", value=f"```{after.content[:500]}```", inline=False)
+        if before.attachments or after.attachments:
+            embed.add_field(
+                name="Ekler",
+                value=f"Önce: {len(before.attachments)} | Sonra: {len(after.attachments)}",
+                inline=True,
+            )
         embed.set_footer(text=f"ID: {before.author.id} • {before.guild.name}")
         await self._send_log(before.guild.id, "message_edit", embed)
 
@@ -394,34 +421,42 @@ class LogSistemi(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
+        actor, reason = await self._audit_actor(channel.guild, discord.AuditLogAction.channel_create, channel.id)
         embed = discord.Embed(title="Kanal Oluşturuldu", description=f"{channel.mention} kanalı oluşturuldu", color=discord.Color.green(), timestamp=datetime.now())
         embed.add_field(name="Kanal", value=channel.mention, inline=True)
         embed.add_field(name="Tür", value=str(channel.type).capitalize(), inline=True)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {channel.id} • {channel.guild.name}")
-        await self._send_log(channel.guild.id, "channel", embed)
+        await self._send_log(channel.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+        actor, reason = await self._audit_actor(channel.guild, discord.AuditLogAction.channel_delete, channel.id)
         embed = discord.Embed(title="Kanal Silindi", description=f"`{channel.name}` kanalı silindi", color=discord.Color.red(), timestamp=datetime.now())
         embed.add_field(name="Kanal Adı", value=f"`{channel.name}`", inline=True)
         embed.add_field(name="Tür", value=str(channel.type).capitalize(), inline=True)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {channel.id} • {channel.guild.name}")
-        await self._send_log(channel.guild.id, "channel", embed)
+        await self._send_log(channel.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
+        actor, reason = await self._audit_actor(role.guild, discord.AuditLogAction.role_create, role.id)
         embed = discord.Embed(title="Rol Oluşturuldu", description=f"{role.mention} rolü oluşturuldu", color=discord.Color.green(), timestamp=datetime.now())
         embed.add_field(name="Rol", value=role.mention, inline=True)
         embed.add_field(name="Renk", value=str(role.color) if role.color.value else "Yok", inline=True)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {role.id} • {role.guild.name}")
-        await self._send_log(role.guild.id, "role", embed)
+        await self._send_log(role.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
+        actor, reason = await self._audit_actor(role.guild, discord.AuditLogAction.role_delete, role.id)
         embed = discord.Embed(title="Rol Silindi", description=f"`{role.name}` rolü silindi", color=discord.Color.red(), timestamp=datetime.now())
         embed.add_field(name="Rol Adı", value=f"`{role.name}`", inline=True)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {role.id} • {role.guild.name}")
-        await self._send_log(role.guild.id, "role", embed)
+        await self._send_log(role.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
@@ -429,6 +464,7 @@ class LogSistemi(commands.Cog):
                 before.hoist == after.hoist and before.mentionable == after.mentionable and
                 before.permissions == after.permissions):
             return
+        actor, reason = await self._audit_actor(after.guild, discord.AuditLogAction.role_update, after.id)
         embed = discord.Embed(title="Rol Güncellendi", description=f"{after.mention} rolü güncellendi", color=discord.Color.blue(), timestamp=datetime.now())
         if before.name != after.name:
             embed.add_field(name="İsim Değişikliği", value=f"`{before.name}` → `{after.name}`", inline=False)
@@ -445,8 +481,9 @@ class LogSistemi(commands.Cog):
                 embed.add_field(name="Verilen Yetkiler", value=", ".join(added), inline=False)
             if removed:
                 embed.add_field(name="Alınan Yetkiler", value=", ".join(removed), inline=False)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {after.id} • {after.guild.name}")
-        await self._send_log(after.guild.id, "role", embed)
+        await self._send_log(after.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_emojis_update(self, guild: discord.Guild, before, after):
@@ -464,14 +501,16 @@ class LogSistemi(commands.Cog):
 
     @commands.Cog.listener()
     async def on_webhooks_update(self, channel: discord.abc.GuildChannel):
+        actor, reason = await self._audit_actor(channel.guild, discord.AuditLogAction.webhook_create, channel.id)
         embed = discord.Embed(
             title="Webhook Güncellendi",
             description=f"{channel.mention} kanalında webhook değişikliği",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {channel.id} • {channel.guild.name}")
-        await self._send_log(channel.guild.id, "channel", embed)
+        await self._send_log(channel.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread):
@@ -622,11 +661,13 @@ class LogSistemi(commands.Cog):
             changes.append("Kanal izinleri değiştirildi")
         if not changes:
             return
+        actor, reason = await self._audit_actor(after.guild, discord.AuditLogAction.channel_update, after.id)
         embed = discord.Embed(title="Kanal Düzenlendi", description=f"{after.mention} kanalı düzenlendi", color=discord.Color.blue(), timestamp=datetime.now())
         embed.add_field(name="Kanal", value=after.mention, inline=True)
         embed.add_field(name="Değişiklikler", value="\n".join(changes)[:1024], inline=False)
+        self._actor_fields(embed, actor, reason)
         embed.set_footer(text=f"ID: {after.id} • {after.guild.name}")
-        await self._send_log(after.guild.id, "channel", embed)
+        await self._send_log(after.guild.id, "security", embed)
 
     @commands.Cog.listener()
     async def on_guild_channel_pins_update(self, channel: discord.abc.GuildChannel, last_pin: datetime):
