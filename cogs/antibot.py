@@ -234,6 +234,21 @@ class OnayView(discord.ui.View):
     async def banla(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.cog._approve_ban(interaction, self.guild_id, self.user_id, self)
 
+    @discord.ui.button(label="Sunucudan At", style=discord.ButtonStyle.danger, emoji="👢")
+    async def at(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = self.cog.bot.get_guild(self.guild_id)
+        member = guild.get_member(self.user_id) if guild else None
+        if not guild or not member:
+            await interaction.response.edit_message(content="Üye artık sunucuda değil.", view=None)
+            return
+        try:
+            await guild.kick(member, reason=f"Antibot - {interaction.user} tarafından onaylandı")
+            self.cog.pending_reviews.pop((self.guild_id, self.user_id), None)
+            self.cog.quarantine_overwrites.pop((self.guild_id, self.user_id), None)
+            await interaction.response.edit_message(content=f"👢 `{member}` sunucudan atıldı.", view=None)
+        except (discord.Forbidden, discord.HTTPException):
+            await interaction.response.send_message("Üye atılamadı. Botta Kick Members yetkisi olmalı.", ephemeral=True)
+
     @discord.ui.button(label="Güvenli Listeye Al", style=discord.ButtonStyle.success, emoji="✅")
     async def guvenli_al(self, interaction: discord.Interaction, button: discord.ui.Button):
         settings = self.cog._get_guild_settings(self.guild_id)
@@ -249,6 +264,92 @@ class OnayView(discord.ui.View):
     async def yoksay(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content="⏸️ İşlem yoksayıldı; hesap karantinada tutuluyor.", view=None)
         self.cog.pending_reviews.pop((self.guild_id, self.user_id), None)
+
+
+class BotTaramaView(discord.ui.View):
+    def __init__(self, cog, guild_id, members):
+        super().__init__(timeout=900)
+        self.cog = cog
+        self.guild_id = guild_id
+        self.members = {str(member.id): member for member in members}
+        self.selected_id = None
+        options = [
+            discord.SelectOption(
+                label=member.name[:100],
+                value=str(member.id),
+                description=f"ID: {member.id}",
+            )
+            for member in members[:25]
+        ]
+        select = discord.ui.Select(placeholder="İşlem yapılacak botu seç", options=options, custom_id=f"bot_scan_{guild_id}")
+        select.callback = self._select_callback
+        self.add_item(select)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not self.cog._can_approve(interaction):
+            await interaction.response.send_message("Bu işlem için yetkiniz yok.", ephemeral=True)
+            return False
+        return True
+
+    async def _select_callback(self, interaction: discord.Interaction):
+        self.selected_id = interaction.data.get("values", [None])[0]
+        member = self.members.get(self.selected_id)
+        await interaction.response.send_message(f"Seçildi: `{member.name if member else self.selected_id}`", ephemeral=True)
+
+    def _selected_member(self):
+        return self.members.get(self.selected_id)
+
+    @discord.ui.button(label="Seçili Botu Banla", style=discord.ButtonStyle.danger, emoji="🔨")
+    async def banla(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self._selected_member()
+        if not member:
+            await interaction.response.send_message("Önce listeden bir bot seç.", ephemeral=True)
+            return
+        try:
+            await interaction.guild.ban(member, reason=f"Antibot taraması - {interaction.user} onayı")
+            self.members.pop(str(member.id), None)
+            self.cog.pending_reviews.pop((self.guild_id, member.id), None)
+            self.cog.quarantine_overwrites.pop((self.guild_id, member.id), None)
+            await interaction.response.send_message(f"🔨 `{member}` banlandı.", ephemeral=True)
+        except (discord.Forbidden, discord.HTTPException):
+            await interaction.response.send_message("Bot banlanamadı. Rol hiyerarşisini ve Ban Members yetkisini kontrol et.", ephemeral=True)
+
+    @discord.ui.button(label="Seçili Botu At", style=discord.ButtonStyle.danger, emoji="👢")
+    async def at(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self._selected_member()
+        if not member:
+            await interaction.response.send_message("Önce listeden bir bot seç.", ephemeral=True)
+            return
+        try:
+            await interaction.guild.kick(member, reason=f"Antibot taraması - {interaction.user} onayı")
+            self.members.pop(str(member.id), None)
+            self.cog.pending_reviews.pop((self.guild_id, member.id), None)
+            self.cog.quarantine_overwrites.pop((self.guild_id, member.id), None)
+            await interaction.response.send_message(f"👢 `{member}` sunucudan atıldı.", ephemeral=True)
+        except (discord.Forbidden, discord.HTTPException):
+            await interaction.response.send_message("Bot atılamadı. Kick Members yetkisini ve rol hiyerarşisini kontrol et.", ephemeral=True)
+
+    @discord.ui.button(label="Güvenli Listeye Al", style=discord.ButtonStyle.success, emoji="✅")
+    async def guvenli_al(self, interaction: discord.Interaction, button: discord.Button):
+        member = self._selected_member()
+        if not member:
+            await interaction.response.send_message("Önce listeden bir bot seç.", ephemeral=True)
+            return
+        settings = self.cog._get_guild_settings(self.guild_id)
+        if str(member.id) not in settings["guvenli_botlar"]:
+            settings["guvenli_botlar"].append(str(member.id))
+            self.cog._save_guild_settings(self.guild_id, settings)
+        await self.cog._release_quarantine(self.guild_id, member.id)
+        self.cog.pending_reviews.pop((self.guild_id, member.id), None)
+        await interaction.response.send_message(f"✅ `{member}` güvenli listeye alındı.", ephemeral=True)
+
+    @discord.ui.button(label="Karantinada Tut", style=discord.ButtonStyle.secondary, emoji="⏸️")
+    async def karantinada_tut(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self._selected_member()
+        if not member:
+            await interaction.response.send_message("Önce listeden bir bot seç.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"⏸️ `{member}` karantinada tutuluyor.", ephemeral=True)
 
 class AntibotView(discord.ui.View):
     def __init__(self, cog, guild_id):
@@ -565,13 +666,16 @@ class Antibot(commands.Cog):
         allowed = {str(uid) for uid in settings.get("izinli_yetkililer", [])}
         return inviter, inviter is not None and str(inviter.id) in allowed
 
-    async def _request_review(self, member, settings, reason):
+    async def _queue_review(self, member):
         key = (member.guild.id, member.id)
         if key in self.pending_reviews:
             return
         await self._quarantine(member)
-        view = OnayView(self, member.guild.id, member.id, member.bot)
         self.pending_reviews[key] = True
+
+    async def _request_review(self, member, settings, reason):
+        await self._queue_review(member)
+        view = OnayView(self, member.guild.id, member.id, member.bot)
         await self._alert(
             member.guild,
             settings,
@@ -579,6 +683,23 @@ class Antibot(commands.Cog):
             f"{member.mention} (`{member.name}`) şüpheli hesap olarak karantinaya alındı.\n"
             f"Sebep: {reason}\nID: `{member.id}`\nBan için aşağıdaki butona yetkili basmalı.",
             discord.Color.red(),
+            view,
+        )
+
+    async def _send_scan_review(self, guild, settings, members):
+        if not members:
+            return
+        view = BotTaramaView(self, guild.id, members)
+        names = "\n".join(
+            f"• `{member.name}` (`{member.id}`) - Karantinada"
+            for member in members[:25]
+        )
+        await self._alert(
+            guild,
+            settings,
+            "Bot Tarama Sonucu - İşlem Seç",
+            f"Toplam **{len(members)}** şüpheli bot bulundu.\n\n{names}\n\nListeden botu seçip yapılacak işlemi belirle.",
+            discord.Color.orange(),
             view,
         )
 
@@ -623,7 +744,7 @@ class Antibot(commands.Cog):
             if not allowed and member.top_role < guild.me.top_role:
                 targets.append(member)
 
-        await asyncio.gather(*(self._request_review(member, settings, "Güvenli listede olmayan bot") for member in targets))
+        await asyncio.gather(*(self._queue_review(member) for member in targets))
         return targets
 
     async def _run_shield(self, interaction: discord.Interaction):
@@ -652,14 +773,7 @@ class Antibot(commands.Cog):
         targets = await self._review_untrusted_bots(guild)
 
         if targets:
-            names = ", ".join(f"`{member.name}`" for member in targets[:15])
-            await self._alert(
-                guild,
-                settings,
-                "System1 mevcut bot taraması tamamlandı",
-                f"Şüpheli bot: **{len(targets)}** | Durum: **Yetkili onayı bekleniyor**\n{names}",
-                discord.Color.orange(),
-            )
+            await self._send_scan_review(guild, settings, targets)
 
         await interaction.followup.send(
             f"Kalkan aktif. {len(targets)} şüpheli bot karantinaya alındı, yetkili onayı bekleniyor. "
