@@ -7,6 +7,7 @@ Profesyonel Discord moderasyon botu ve web admin paneli.
 ### 🎮 Bot Komutları (Slash Commands)
 - `/ban`, `/kick`, `/purge`, `/embed` - Moderasyon ve özel embed mesajları
 - `/antibot`, `/otokoruma`, `/automod-setup`, `/automod-kurallar`, `/automod-stats` - Koruma sistemleri
+- `/system1` - Güvenli bot allowlist'i, anlık bot engelleme ve rol etiketli şüpheli hesap uyarıları
 - `/ticket`, `/ticket-yetkili`, `/ticket-log` - Ticket yönetimi
 - `/setlog`, `/logayarlari` - Log kanalı yönetimi
 - `/karsilama`, `/otorol`, `/sesoda`, `/dogrulama` - Sunucu sistemleri
