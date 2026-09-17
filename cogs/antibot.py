@@ -324,6 +324,10 @@ class Antibot(commands.Cog):
     async def _ban_untrusted_bots(self, guild):
         settings = self._get_guild_settings(guild.id)
         trusted = {str(bot_id) for bot_id in settings.get("guvenli_botlar", [])}
+        try:
+            await guild.chunk(cache=True)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
         targets = [
             member for member in guild.members
             if member.bot
@@ -398,6 +402,16 @@ class Antibot(commands.Cog):
                     )
                 except (discord.Forbidden, discord.HTTPException):
                     pass
+
+        if banned or failed:
+            names = ", ".join(f"`{member.name}`" for member in (banned + failed)[:15])
+            await self._alert(
+                guild,
+                settings,
+                "System1 mevcut bot taraması tamamlandı",
+                f"Şüpheli bot: **{len(banned) + len(failed)}** | Banlanan: **{len(banned)}** | Başarısız: **{len(failed)}**\n{names}",
+                discord.Color.red() if failed else discord.Color.orange(),
+            )
 
         await interaction.followup.send(
             f"System1 tamamlandı. {len(locked)} kanal kilitlendi/açıldı, "
